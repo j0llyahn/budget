@@ -3682,11 +3682,10 @@ function saveData() {
   uploadToFirebase();
 }
 
-// 1. 구글 시트 전송 함수 (script 태그 안쪽 아무데나 두시면 됩니다)
+// 1. 구글 시트 전송 함수 (수정 완료)
 function sendToGoogleSheet(tx) {
   const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwqDxKeYSoBZLDN086d5SuyURODyK3KFBTL9nRuJQdN7o2DaeixhLrZxZFiNlaDUVtVuw/exec";
-  if (GOOGLE_SHEET_URL.includes("https://script.google.com/macros/s/AKfycbwqDxKeYSoBZLDN086d5SuyURODyK3KFBTL9nRuJQdN7o2DaeixhLrZxZFiNlaDUVtVuw/exec")) return;
-
+  
   const data = {
     date: tx.date,
     type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',
