@@ -3684,8 +3684,8 @@ function saveData() {
 
 // 1. 구글 시트 전송 함수 (script 태그 안쪽 아무데나 두시면 됩니다)
 function sendToGoogleSheet(tx) {
-  const GOOGLE_SHEET_URL = "여기에_아까_복사한_GAS_URL을_넣으세요";
-  if (GOOGLE_SHEET_URL.includes("여기에_아까_복사한")) return;
+  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwqDxKeYSoBZLDN086d5SuyURODyK3KFBTL9nRuJQdN7o2DaeixhLrZxZFiNlaDUVtVuw/exec";
+  if (GOOGLE_SHEET_URL.includes("https://script.google.com/macros/s/AKfycbwqDxKeYSoBZLDN086d5SuyURODyK3KFBTL9nRuJQdN7o2DaeixhLrZxZFiNlaDUVtVuw/exec")) return;
 
   const data = {
     date: tx.date,
