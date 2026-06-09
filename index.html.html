@@ -1567,14 +1567,12 @@ function parseQuick() {
 function confirmParsed() {
   if (!parsedTx) return;
 
-  // 대출 상환 (복수 항목) 처리
   if (Array.isArray(parsedTx)) {
     parsedTx.forEach(item => {
       const tx = { ...item, id: 'tx_' + Date.now() + Math.random(), ts: Date.now() };
       transactions.unshift(tx);
-      sendToGoogleSheet(tx); // ★ 구글 시트로 전송 추가
+      sendToGoogleSheet(tx); // 구글 시트 전송
     });
-    // 대출 잔액 자동 업데이트
     if (parsedLoanUpdate) {
       const { loan, principalAmt } = parsedLoanUpdate;
       const loanObj = loans.find(l => l.id === loan.id);
@@ -1592,17 +1590,9 @@ function confirmParsed() {
   } else {
     const tx = { ...parsedTx, id: 'tx_' + Date.now(), ts: Date.now() };
     transactions.unshift(tx);
-    sendToGoogleSheet(tx); // ★ 구글 시트로 전송 추가
+    sendToGoogleSheet(tx); // 구글 시트 전송
     showToast('✓ 추가되었습니다!');
   }
-
-  saveData();
-  document.getElementById('quick-text').value = '';
-  document.getElementById('parse-result').style.display = 'none';
-  parsedTx = null;
-  parsedLoanUpdate = null;
-  renderSummary(); renderRecent();
-}
 
   saveData();
   document.getElementById('quick-text').value = '';
@@ -1629,7 +1619,7 @@ function updateCatOptions() {
   };
   sel.innerHTML = (opts[currentType] || opts.expense).map(o=>`<option>${o}</option>`).join('');
 }
-
+// 3. 기존 addManual 함수를 통째로 지우고 아래로 교체하세요
 function addManual() {
   const amount = parseComma(document.getElementById('f-amount').value);
   if (!amount) { showToast('금액을 입력해주세요'); return; }
@@ -1644,9 +1634,8 @@ function addManual() {
     memo: document.getElementById('f-memo').value
   };
   transactions.unshift(tx);
-  sendToGoogleSheet(tx); // ★ 구글 시트로 전송 추가
+  sendToGoogleSheet(tx); // 구글 시트 전송
 
-  // 제목에 대출명이 포함되면 잔액 자동 차감
   let loanMatched = null;
   for (const loan of loans) {
     const loanNorm = loan.name.replace(/\s/g, '');
@@ -1671,12 +1660,7 @@ function addManual() {
   document.getElementById('f-memo').value = '';
   renderSummary(); renderRecent();
 }
-  saveData();
-  document.getElementById('f-amount').value = '';
-  document.getElementById('f-title').value = '';
-  document.getElementById('f-memo').value = '';
-  renderSummary(); renderRecent();
-}
+
 
 // ─── RECENT ──────────────────────────────────────────────
 function renderRecent() {
@@ -3698,11 +3682,11 @@ function saveData() {
   uploadToFirebase();
 }
 
-// ---------구글 시트 전송 함수------------------------------------
-async function sendToGoogleSheet(tx) {
-  // ★ 여기에 구글 Apps Script 배포 후 얻은 URL을 넣으세요 ★
-  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwipx7FbH0lJgjBNQllvec2cyxdSiQKjUfuAwWQ9zkWEM6OuZH5_nb_n8cj-0H5BT_YjQ/exec";
-  
+// 1. 구글 시트 전송 함수 (script 태그 안쪽 아무데나 두시면 됩니다)
+function sendToGoogleSheet(tx) {
+  const GOOGLE_SHEET_URL = "여기에_아까_복사한_GAS_URL을_넣으세요";
+  if (GOOGLE_SHEET_URL.includes("여기에_아까_복사한")) return;
+
   const data = {
     date: tx.date,
     type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',
@@ -3716,13 +3700,10 @@ async function sendToGoogleSheet(tx) {
     fetch(GOOGLE_SHEET_URL, {
       method: 'POST',
       mode: 'no-cors',
-      cache: 'no-cache',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    });
-  } catch (e) {
-    console.error("구글 시트 전송 실패:", e);
-  }
+    }).catch(function(e){});
+  } catch (e) {}
 }
 
 
