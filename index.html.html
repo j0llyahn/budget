@@ -3716,10 +3716,13 @@ function saveData() {
 // 1. 구글 시트 전송 함수 (수정 완료)
 function sendToGoogleSheet(tx) {
   const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
+
   
   const data = {
+    action : 'insert',
+    id : tx.id,
     date: tx.date,
-    type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',
+    type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',d
     cat: tx.cat,
     subcat: tx.subcat || '',
     title: tx.title,
