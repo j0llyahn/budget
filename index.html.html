@@ -1189,11 +1189,12 @@ if (!transactions) {
     by: (r['입금계좌'] || r['출금계좌'] || '').includes('지연') ? '지연' : '준영',
     ts: Date.now() - i
   }));
-  saveData();
+  localStorage.setItem('txs', JSON.stringify(transactions));
 }
 
 let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
 let evaluations = JSON.parse(localStorage.getItem('evaluations') || '{}');
+let loans = JSON.parse(localStorage.getItem('loans') || '[]');
 
 function saveData() {
   localStorage.setItem('txs', JSON.stringify(transactions));
@@ -3171,7 +3172,6 @@ function renderGiftPage() {
 }
 
 
-let loans = JSON.parse(localStorage.getItem('loans') || '[]');
 
 function saveLoans() {
   localStorage.setItem('loans', JSON.stringify(loans));
