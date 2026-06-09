@@ -1633,14 +1633,16 @@ function setType(t) {
 
 function updateCatOptions() {
   const selCat = document.getElementById('f-cat');
+  if (!selCat) return;
   const cats = Object.keys(CATEGORY_MAP[currentType] || {});
   selCat.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  updateSubcatOptions(); // 대분류가 바뀌면 소분류도 업데이트
+  updateSubcatOptions(); 
 }
 
 function updateSubcatOptions() {
   const selCat = document.getElementById('f-cat').value;
   const selSubcat = document.getElementById('f-subcat');
+  if (!selSubcat) return;
   const subcats = CATEGORY_MAP[currentType][selCat] || ['기타'];
   selSubcat.innerHTML = subcats.map(sc => `<option value="${sc}">${sc}</option>`).join('');
 }
@@ -3761,7 +3763,7 @@ function deleteTx(id) {
   
   // 구글 시트에서도 삭제하도록 호출
   deleteFromGoogleSheet(id); 
-}}
+}
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
 function showShareInfo() {
