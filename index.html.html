@@ -1712,16 +1712,7 @@ function txHTML(tx) {
   </div>`;
 }
 
-function deleteTx(id) {
-  transactions = transactions.filter(t => t.id !== id);
-  saveData(); 
-  renderSummary(); 
-  renderRecent(); 
-  renderRecords();
-  
-  // ★ 구글 시트에서도 삭제하도록 호출!
-  deleteFromGoogleSheet(id); 
-}
+
 
 // ─── RECORDS ─────────────────────────────────────────────
 function setFilter(f, btn) {
@@ -3713,16 +3704,16 @@ function saveData() {
   uploadToFirebase();
 }
 
-// 1. 구글 시트 전송 함수 (수정 완료)
+// 1. 구글 시트 추가 함수
 function sendToGoogleSheet(tx) {
+  // ★ 여기에 새로 발급받은 URL을 넣어주세요! ★
   const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
 
-  
   const data = {
-    action : 'insert',
-    id : tx.id,
+    action: 'insert',
+    id: tx.id,
     date: tx.date,
-    type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',d
+    type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',
     cat: tx.cat,
     subcat: tx.subcat || '',
     title: tx.title,
@@ -3740,13 +3731,14 @@ function sendToGoogleSheet(tx) {
   } catch (e) {}
 }
 
+// 2. 구글 시트 삭제 함수
 function deleteFromGoogleSheet(txId) {
-  // ★ 위와 똑같은 새 URL을 넣어주세요! ★
-  const GOOGLE_SHEET_URL = "여기에_새로_발급받은_URL을_넣으세요";
+  // ★ 위와 똑같은 URL을 넣어주세요! ★
+  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
 
   const data = { 
-    action: 'delete', // 삭제 동작임을 알림
-    id: txId          // 지울 ID 전달
+    action: 'delete',
+    id: txId
   };
 
   try {
@@ -3758,6 +3750,18 @@ function deleteFromGoogleSheet(txId) {
     }).catch(function(e){});
   } catch (e) {}
 }
+
+// 3. 기존 내역 삭제 함수 (덮어쓰기)
+function deleteTx(id) {
+  transactions = transactions.filter(t => t.id !== id);
+  saveData(); 
+  renderSummary(); 
+  renderRecent(); 
+  renderRecords();
+  
+  // 구글 시트에서도 삭제하도록 호출
+  deleteFromGoogleSheet(id); 
+}}
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
 function showShareInfo() {
