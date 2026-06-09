@@ -1714,7 +1714,13 @@ function txHTML(tx) {
 
 function deleteTx(id) {
   transactions = transactions.filter(t => t.id !== id);
-  saveData(); renderSummary(); renderRecent(); renderRecords();
+  saveData(); 
+  renderSummary(); 
+  renderRecent(); 
+  renderRecords();
+  
+  // ★ 구글 시트에서도 삭제하도록 호출!
+  deleteFromGoogleSheet(id); 
 }
 
 // ─── RECORDS ─────────────────────────────────────────────
@@ -3709,7 +3715,7 @@ function saveData() {
 
 // 1. 구글 시트 전송 함수 (수정 완료)
 function sendToGoogleSheet(tx) {
-  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwWpPmd6himDz_Owde_7G8ckffwckZzWs-1Bf4pJEnuS36uV5cRpjU9S9P0E7jyoXYENg/exec";
+  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
   
   const data = {
     date: tx.date,
@@ -3731,6 +3737,24 @@ function sendToGoogleSheet(tx) {
   } catch (e) {}
 }
 
+function deleteFromGoogleSheet(txId) {
+  // ★ 위와 똑같은 새 URL을 넣어주세요! ★
+  const GOOGLE_SHEET_URL = "여기에_새로_발급받은_URL을_넣으세요";
+
+  const data = { 
+    action: 'delete', // 삭제 동작임을 알림
+    id: txId          // 지울 ID 전달
+  };
+
+  try {
+    fetch(GOOGLE_SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).catch(function(e){});
+  } catch (e) {}
+}
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
 function showShareInfo() {
