@@ -1241,7 +1241,7 @@ const CATEGORY_MAP = {
     '코인': ['솔 코인', '탁 코인'],
     '연금': ['솔 연금', '탁 연금'],
     '부동산': ['솔 부동산', '탁 부동산'],
-    '대출상환': ['주거대출상환']
+    '대출상환': ['주거대출상환'],
     '기타': ['기타']
   },
   loan: {
@@ -1886,6 +1886,16 @@ function renderRecords() {
       </div></div>
     </div>`
   ).join('');
+}
+
+function makeChart(id, type, labels, data, colors) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: type,
+    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false }
+  });
 }
 
 function formatDateLabel(dateStr) {
