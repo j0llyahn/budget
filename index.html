@@ -486,7 +486,6 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     <button class="btn-confirm" onclick="confirmParsed()">✓ 추가하기</button>
   </div>
 
-
   <!-- MANUAL FORM -->
   <div class="card">
     <div class="card-header">직접 입력</div>
@@ -502,14 +501,45 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
         <button class="type-tab" data-t="invest" onclick="setType('invest')">📈 투자</button>
       </div>
       
-    </div>
-  </div> <!-- MANUAL FORM 카드 끝 -->
+      <div class="form-grid">
+        <!-- 1. 소분류 -->
+        <div class="form-group"><label>소분류</label>
+          <select id="f-cat" onchange="updateDetailCat()">
+            <!-- JS에서 자동 생성됨 -->
+          </select>
+        </div>
+        
+        <!-- 2. 세부내역 -->
+        <div class="form-group"><label>세부내역</label>
+          <select id="f-detail">
+            <!-- JS에서 자동 생성됨 -->
+          </select>
+        </div>
 
+        <!-- 3. 날짜 -->
+        <div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>
+        
+        <!-- 4. 금액 -->
+        <div class="form-group"><label>금액</label><input type="text" inputmode="numeric" id="f-amount" placeholder="15,000"></div>
+
+        <!-- 5. 내용 (가로 전체 차지) -->
+        <div class="form-group full"><label>내용 (어디서 썼나요?)</label><input type="text" id="f-title" placeholder="이마트, 스타벅스..."></div>
+      </div>
+      
+      <!-- 버튼 영역 -->
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="btn-add" style="flex:1; background:var(--bg); color:var(--text); border:1.5px solid var(--border); margin-top:0; font-size:0.9rem;" onclick="addFavorite()">⭐ 즐겨찾기 등록</button>
+        <button class="btn-add" style="flex:2; margin-top:0;" onclick="addManual()">추가 ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT -->
   <div class="section-title">최근 내역</div>
   <div id="recent-list"></div>
-</div> <!-- page-home 끝 -->
+</div>
 
-<!-- RECORDS (내역 화면) -->
+<!-- RECORDS -->
 <div id="page-records" class="page">
   <div class="filter-tabs">
     <button class="filter-tab active" onclick="setFilter('all',this)">전체</button>
@@ -518,7 +548,7 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     <button class="filter-tab" onclick="setFilter('invest',this)">📈 투자</button>
   </div>
   
-  <!-- 소분류 필터 -->
+  <!-- 소분류 필터 (대분류 선택 시 등장) -->
   <div id="subcat-filter-wrap" style="display:none; margin-bottom:12px;">
     <select id="subcat-filter" onchange="renderRecords()" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:10px; font-family:inherit; font-size:0.9rem; background:white; outline:none;">
       <option value="all">전체 카테고리</option>
