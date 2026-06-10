@@ -560,6 +560,11 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
       oninput="renderRecords()"
       style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.9rem;background:white;outline:none;">
   </div>
+
+<div id="records-summary" style="padding: 12px; background: #f8f9fa; border-radius: 8px; margin: 10px 0; text-align: right; font-weight: bold; font-size: 1.05em;">
+  <!-- 합계 금액이 여기에 표시됩니다 -->
+</div>
+
   <div id="records-list"></div>
 </div>
 
@@ -1846,7 +1851,8 @@ function renderRecords() {
   else if (txFilter === 'invest') txs = txs.filter(t => t.type === 'invest');
   
   if (subCat && subCat !== 'all') txs = txs.filter(t => t.cat === subCat);
-  if (search) txs = txs.filter(t => (t.title+t.cat+t.memo).toLowerCase().includes(search));
+  // 메모(memo)가 없는 경우 에러 방지를 위해 (t.memo||'') 처리 추가
+  if (search) txs = txs.filter(t => (t.title+t.cat+(t.memo||'')).toLowerCase().includes(search));
   
   txs = txs.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
@@ -1855,9 +1861,41 @@ function renderRecords() {
 
   if (!txs.length) { el.innerHTML = '<div class="empty"><div class="e">📂</div>내역이 없어요</div>'; return; }
 
+  // --- [추가된 부분: 합계 계산] ---
+  let sumIncome = 0, sumExpense = 0, sumInvest = 0, totalSum = 0;
+  txs.forEach(t => {
+    const amt = Number(t.amount) || 0;
+    if (t.type === 'income') sumIncome += amt;
+    else if (t.type === 'expense') sumExpense += amt;
+    else if (t.type === 'invest') sumInvest += amt;
+    totalSum += amt;
+  });
+
+  // 합계 표시용 HTML 생성
+  let summaryHTML = '';
+  if (txFilter === 'all') {
+    summaryHTML = `
+      <div style="padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 16px; text-align: right; font-weight: bold; font-size: 14px;">
+        <span style="color: #2196F3; margin-right: 10px;">수입: ${sumIncome.toLocaleString()}원</span>
+        <span style="color: #F44336; margin-right: 10px;">지출: ${sumExpense.toLocaleString()}원</span>
+        <span style="color: #4CAF50;">투자: ${sumInvest.toLocaleString()}원</span>
+      </div>
+    `;
+  } else {
+    const color = txFilter === 'income' ? '#2196F3' : (txFilter === 'expense' ? '#F44336' : '#4CAF50');
+    summaryHTML = `
+      <div style="padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 16px; text-align: right; font-weight: bold; font-size: 14px; color: ${color};">
+        합계: ${totalSum.toLocaleString()}원
+      </div>
+    `;
+  }
+  // --------------------------------
+
   const byDate = {};
   txs.forEach(t => { if (!byDate[t.date]) byDate[t.date] = []; byDate[t.date].push(t); });
-  el.innerHTML = Object.entries(byDate).sort((a,b)=>b[0]>a[0]?1:-1).map(([date, txs]) =>
+  
+  // summaryHTML을 리스트 맨 위에 함께 렌더링
+  el.innerHTML = summaryHTML + Object.entries(byDate).sort((a,b)=>b[0]>a[0]?1:-1).map(([date, txs]) =>
     `<div style="margin-bottom:14px">
       <div style="font-size:12px;color:var(--muted);font-weight:700;padding:4px 0 8px">${formatDateLabel(date)}</div>
       <div class="card" style="margin-bottom:0"><div class="card-body" style="padding:8px 16px">
