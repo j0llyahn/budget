@@ -1758,44 +1758,37 @@ function updateDetailCat() {
   const details = CATEGORY_MAP[currentType][cat] || ['기타'];
     detailSel.innerHTML = details.map(d => `<option value="${d}">${d}</option>`).join('');
 }
-
-ffunction addManual() {
+function addManual() {
   const amount = parseComma(document.getElementById('f-amount').value);
-  if (!amount) { showToast('금액을 입력해주세요'); return; }
+  if (!amount) { 
+    showToast('금액을 입력해주세요'); 
+    return; 
+  }
+
   const title = document.getElementById('f-title').value || document.getElementById('f-cat').value;
-  
+
   const tx = {
-    id: 'tx_' + Date.now(), ts: Date.now(),
+    id: 'tx_' + Date.now(),
+    ts: Date.now(),
     date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
     type: currentType,
     cat: document.getElementById('f-cat').value,
     subcat: document.getElementById('f-detail').value,
-    title,
-    amount,
-    memo: "" // ★ 에러 원인 해결: 지워진 메모 칸 대신 빈 값("")을 넣습니다.
+    title: title,
+    amount: amount,
+    memo: ""
   };
-  
+
   transactions.unshift(tx);
-  sendToGoogleSheet(tx); // 구글 시트 전송
+  sendToGoogleSheet(tx);
 
-  let loanMatched = null;
-  for (const loan of loans) {
-    const loanNorm = loan.name.replace(/\s/g, '');
-    const titleNorm = title.replace(/\s/g, '');
-    if (title.includes(loan.name) || titleNorm.includes(loanNorm)) {
-      loanMatched = loan;
-      break;
-    }
-  }
-  if (loanMatched) {
-    loanMatched.balance = Math.max(0, (loanMatched.balance || 0) - amount);
-    loanMatched.lastUpdated = Date.now();
-    saveLoans();
-    showToast(`✓ 추가 & ${loanMatched.name} 잔액 -${fmt(amount)} 차감!`);
-  } else {
-    showToast('✓ 추가되었습니다!');
-  }
-
+  saveData();
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-title').value = '';
+  renderSummary();
+  renderRecent();
+  showToast('✓ 추가되었습니다!');
+}
   saveData();
   document.getElementById('f-amount').value = '';
   document.getElementById('f-title').value = '';
@@ -2094,25 +2087,12 @@ function renderAnnual() {
 }
 
 // ─── MORE MENU ────────────────────────────────────────────
-function toggleMoreMenu() {
+window.toggleMoreMenu = function () {
   const el = document.getElementById('more-menu');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-function makeChart(id, type, labels, data, colors) {
-  if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart(document.getElementById(id).getContext('2d'), {
-    type,
-    data: { labels, datasets:[{ data, backgroundColor:colors,
-      borderColor: type==='bar' ? colors : '#fff',
-      borderWidth: type==='doughnut' ? 2 : 0,
-      borderRadius: type==='bar' ? 8 : 0
-    }]},
-    options: { responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display: type==='doughnut', position:'bottom'}},
-      scales: type==='bar' ? {y:{beginAtZero:true,ticks:{callback:v=>(v/10000).toFixed(0)+'만'}}} : {}
-    }
-  });
-}
+  if (!el) return;
+  const current = window.getComputedStyle(el).display;
+  el.style.display = current === 'none' ? 'block' : 'none';
+};
 
 // ─── INVEST ──────────────────────────────────────────────
 function toggleAddAccount() {
@@ -3042,8 +3022,11 @@ function importData(input) {
   reader.readAsText(file);
 }
 
-function closeMore() { document.getElementById('more-menu').style.display = 'none'; }
-
+window.closeMore = function () {
+  const el = document.getElementById('more-menu');
+  if (!el) return;
+  el.style.display = 'none';
+};
 
 
 
