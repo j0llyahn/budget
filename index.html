@@ -458,6 +458,23 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     <div class="summary-card balance"><div class="lbl">💼 잔액</div><div class="val" id="s-balance">₩0</div></div>
   </div>
 
+  <div class="summary-row" style="margin-top: -6px;">
+    <div class="summary-card" style="border-top-color: var(--terra); background: var(--terra-light);">
+      <div class="lbl" style="color: var(--terra);">📉 이번달 원금상환</div>
+      <div class="val" id="s-loan-principal" style="color: var(--terra);">₩0</div>
+    </div>
+    <div class="summary-card" style="border-top-color: var(--red); background: #fff5f5;">
+      <div class="lbl" style="color: var(--red);">💸 이번달 이자비용</div>
+      <div class="val" id="s-loan-interest" style="color: var(--red);">₩0</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom: 16px; background: var(--text); color: white;">
+    <div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+      <span style="font-size: 0.85rem; opacity: 0.8;">🏦 우리집 총 부채 잔액</span>
+      <span style="font-size: 1.1rem; font-weight: 700;" id="s-loan-total">₩0</span>
+    </div>
+  </div>
+
   <!-- ⭐ 대출 관리 전용 대시보드 (새로 추가) -->
   <div class="summary-row" style="margin-top: -6px;">
     <div class="summary-card" style="border-top-color: var(--terra); background: var(--terra-light);">
@@ -1384,18 +1401,21 @@ function renderSummary() {
   const inc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const exp = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
   const inv = txs.filter(t=>t.type==='invest').reduce((s,t)=>s+t.amount,0);
-  document.getElementById('s-income').textContent = fmt(inc);
-  document.getElementById('s-expense').textContent = fmt(exp);
-  document.getElementById('s-invest').textContent = fmt(inv);
-  const bal = inc - exp;
-  const balEl = document.getElementById('s-balance');
-  balEl.textContent = fmt(bal);
-  balEl.style.color = bal >= 0 ? 'var(--sage)' : 'var(--terra)';
-  document.getElementById('s-income-cnt').textContent = txs.filter(t=>t.type==='income').length + '건';
-  document.getElementById('s-expense-cnt').textContent = txs.filter(t=>t.type==='expense').length + '건';
-  document.getElementById('s-invest-cnt').textContent = txs.filter(t=>t.type==='invest').length + '건';
-  // Check budget alerts
-  checkBudgetAlerts(txs.filter(t=>t.type==='expense'));
+  
+  // 기본 카드 업데이트
+  if(document.getElementById('s-income')) document.getElementById('s-income').textContent = fmt(inc);
+  if(document.getElementById('s-expense')) document.getElementById('s-expense').textContent = fmt(exp);
+  if(document.getElementById('s-invest')) document.getElementById('s-invest').textContent = fmt(inv);
+  if(document.getElementById('s-balance')) document.getElementById('s-balance').textContent = fmt(inc - exp);
+
+  // 대출 통계 업데이트 (요소가 있을 때만 실행)
+  const loanPrincipal = txs.filter(t => t.cat === '대출상환').reduce((s, t) => s + t.amount, 0);
+  const loanInterest = txs.filter(t => t.cat === '금융비용').reduce((s, t) => s + t.amount, 0);
+  const totalDebt = loans.reduce((s, l) => s + l.balance, 0);
+
+  if(document.getElementById('s-loan-principal')) document.getElementById('s-loan-principal').textContent = fmt(loanPrincipal);
+  if(document.getElementById('s-loan-interest')) document.getElementById('s-loan-interest').textContent = fmt(loanInterest);
+  if(document.getElementById('s-loan-total')) document.getElementById('s-loan-total').textContent = fmt(totalDebt);
 }
 
 function checkBudgetAlerts(expTxs) {
@@ -1715,7 +1735,6 @@ function renderInputForm() {
       '<div class="form-group full"><label>내용</label><input type="text" id="f-title" placeholder="어디서 썼나요?"></div>';
     updateCatOptions();
   }
-  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
 }
 
 
