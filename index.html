@@ -538,6 +538,30 @@ index.html 파일에서 <!-- MANUAL FORM --> 부분을 찾아 아래 코드로 �
     </div>
   </div>
 
+<!-- RECORDS -->
+<div id="page-records" class="page">
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('all',this)">전체</button>
+    <button class="filter-tab" onclick="setFilter('income',this)">💰 수입</button>
+    <button class="filter-tab" onclick="setFilter('expense',this)">💸 지출</button>
+    <button class="filter-tab" onclick="setFilter('invest',this)">📈 투자</button>
+  </div>
+  
+  <!-- 소분류 필터 (대분류 선택 시 등장) -->
+  <div id="subcat-filter-wrap" style="display:none; margin-bottom:12px;">
+    <select id="subcat-filter" onchange="renderRecords()" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:10px; font-family:inherit; font-size:0.9rem; background:white; outline:none;">
+      <option value="all">전체 카테고리</option>
+    </select>
+  </div>
+
+  <div style="margin-bottom:12px">
+    <input type="text" id="search-input" placeholder="🔍 내용 검색..." 
+      oninput="renderRecords()"
+      style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:0.9rem;background:white;outline:none;">
+  </div>
+  <div id="records-list"></div>
+</div>
+
 <!-- STATS -->
 <div id="page-stats" class="page">
   <!-- Fixed/Variable toggle -->
@@ -1805,22 +1829,44 @@ function setFilter(f, btn) {
   txFilter = f;
   document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+
+  const subWrap = document.getElementById('subcat-filter-wrap');
+  const subSel = document.getElementById('subcat-filter');
+
+  if (f === 'all') {
+    if (subWrap) subWrap.style.display = 'none';
+    if (subSel) subSel.value = 'all';
+  } else {
+    if (subWrap) subWrap.style.display = 'block';
+    if (subSel) {
+      // CATEGORY_MAP을 사용하여 소분류 목록 생성
+      const cats = Object.keys(CATEGORY_MAP[f] || {});
+      subSel.innerHTML = '<option value="all">전체 카테고리</option>' + 
+        cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+  }
   renderRecords();
 }
 
 function renderRecords() {
   const search = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const subCat = document.getElementById('subcat-filter')?.value;
   let txs = monthTxs();
-  if (txFilter === '수입') txs = txs.filter(t => t.type === 'income');
-  else if (txFilter === '지출') txs = txs.filter(t => t.type === 'expense');
-  else if (txFilter === '투자') txs = txs.filter(t => t.type === 'invest');
+  
+  if (txFilter === 'income') txs = txs.filter(t => t.type === 'income');
+  else if (txFilter === 'expense') txs = txs.filter(t => t.type === 'expense');
+  else if (txFilter === 'invest') txs = txs.filter(t => t.type === 'invest');
+  
+  if (subCat && subCat !== 'all') txs = txs.filter(t => t.cat === subCat);
   if (search) txs = txs.filter(t => (t.title+t.cat+t.memo).toLowerCase().includes(search));
+  
   txs = txs.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
   const el = document.getElementById('records-list');
+  if (!el) return; // 에러 방지
+
   if (!txs.length) { el.innerHTML = '<div class="empty"><div class="e">📂</div>내역이 없어요</div>'; return; }
 
-  // Group by date
   const byDate = {};
   txs.forEach(t => { if (!byDate[t.date]) byDate[t.date] = []; byDate[t.date].push(t); });
   el.innerHTML = Object.entries(byDate).sort((a,b)=>b[0]>a[0]?1:-1).map(([date, txs]) =>
