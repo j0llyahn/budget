@@ -1901,6 +1901,42 @@ function renderCharts() {
   else if (statsView === 'fv') renderFVCharts();
 }
 
+// 차트 생성 헬퍼 함수 (누락된 부분 추가)
+function makeChart(id, type, labels, data, colors) {
+  if (charts[id]) charts[id].destroy(); // 기존 차트가 있으면 지우고 다시 그림
+  
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, {
+    type: type,
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderRadius: type === 'bar' ? 4 : 0,
+        borderWidth: type === 'doughnut' ? 2 : 0,
+        borderColor: type === 'doughnut' ? '#fff' : undefined
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: type === 'doughnut',
+          position: 'bottom'
+        }
+      },
+      scales: type === 'bar' ? {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => (v / 10000).toFixed(0) + '만' }
+        }
+      } : undefined
+    }
+  });
+}
+
 function renderMonthCharts() {
   const txs = monthTxs();
   const inc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
