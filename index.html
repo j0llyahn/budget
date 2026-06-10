@@ -1695,28 +1695,22 @@ function setType(t) {
 
 function renderInputForm() {
   const grid = document.getElementById('input-form-grid');
-  
+  if (!grid) return;
   if (currentType === 'loan') {
-    // [대출] 탭을 눌렀을 때 나오는 전용 입력창
-    grid.innerHTML = `
-      <div class="form-group full"><label>상환할 대출 선택</label>
-        <select id="f-loan-id">${loans.map(l => `<option value="${l.id}">${l.name}</option>`).join('')}</select>
-      </div>
-      <div class="form-group"><label>원금 상환액</label><input type="text" inputmode="numeric" id="f-amount-principal" placeholder="0" oninput="this.value=formatComma(this.value)"></div>
-      <div class="form-group"><label>이자 납부액</label><input type="text" inputmode="numeric" id="f-amount-interest" placeholder="0" oninput="this.value=formatComma(this.value)"></div>
-      <div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>
-      <div class="form-group"><label>내용</label><input type="text" id="f-title" placeholder="상환 기록"></div>
-    `;
+    grid.innerHTML = '<div class="form-group full"><label>상환할 대출 선택</label><select id="f-loan-id">' + 
+      loans.map(function(l) { return '<option value="' + l.id + '">' + l.name + '</option>'; }).join('') + 
+      '</select></div>' +
+      '<div class="form-group"><label>원금 상환액</label><input type="text" inputmode="numeric" id="f-amount-principal" placeholder="0" oninput="this.value=formatComma(this.value)"></div>' +
+      '<div class="form-group"><label>이자 납부액</label><input type="text" inputmode="numeric" id="f-amount-interest" placeholder="0" oninput="this.value=formatComma(this.value)"></div>' +
+      '<div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>' +
+      '<div class="form-group"><label>내용</label><input type="text" id="f-title" placeholder="상환 기록"></div>';
   } else {
-    // [수입, 지출, 투자] 탭을 눌렀을 때 나오는 원래 입력창
-    grid.innerHTML = `
-      <div class="form-group"><label>소분류</label><select id="f-cat" onchange="updateDetailCat()"></select></div>
-      <div class="form-group"><label>세부내역</label><select id="f-detail"></select></div>
-      <div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>
-      <div class="form-group"><label>금액</label><input type="text" inputmode="numeric" id="f-amount" placeholder="0" oninput="this.value=formatComma(this.value)"></div>
-      <div class="form-group full"><label>내용</label><input type="text" id="f-title" placeholder="어디서 썼나요?"></div>
-    `;
-    updateCatOptions(); // 원래 쓰시던 카테고리 목록 불러오기
+    grid.innerHTML = '<div class="form-group"><label>소분류</label><select id="f-cat" onchange="updateDetailCat()"></select></div>' +
+      '<div class="form-group"><label>세부내역</label><select id="f-detail"></select></div>' +
+      '<div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>' +
+      '<div class="form-group"><label>금액</label><input type="text" inputmode="numeric" id="f-amount" placeholder="0" oninput="this.value=formatComma(this.value)"></div>' +
+      '<div class="form-group full"><label>내용</label><input type="text" id="f-title" placeholder="어디서 썼나요?"></div>';
+    updateCatOptions();
   }
   document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
 }
