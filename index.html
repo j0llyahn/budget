@@ -486,15 +486,13 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     <button class="btn-confirm" onclick="confirmParsed()">✓ 추가하기</button>
   </div>
 
-   <!-- MANUAL FORM -->
+<!-- MANUAL FORM -->
   <div class="card">
     <div class="card-header">직접 입력</div>
     <div class="card-body">
       
       <!-- ⭐ 즐겨찾기 바 -->
-      <div id="favorite-bar" style="display:flex; gap:8px; overflow-x:auto; margin-bottom:16px; padding-bottom:4px;">
-        <!-- 즐겨찾기 항목들이 여기에 표시됩니다 -->
-      </div>
+      <div id="favorite-bar" style="display:flex; gap:8px; overflow-x:auto; margin-bottom:16px; padding-bottom:4px;"></div>
 
       <!-- 1. 대분류 -->
       <div class="type-tabs">
@@ -504,32 +502,26 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
       </div>
       
       <div class="form-grid">
-        <!-- 2. 소분류 (카테고리) -->
+        <!-- 2. 소분류 -->
         <div class="form-group"><label>소분류</label>
-          <select id="f-cat">
-            <optgroup label="지출">
-              <option>식비</option><option>교통비</option><option>주거비</option>
-              <option>의료비</option><option>문화생활비</option><option>여행경비</option>
-              <option>육아비</option><option>사회생활비</option><option>통신비</option>
-              <option>효도비</option><option>품위유지비</option><option>세금</option>
-              <option>금융비용</option><option>경조사비</option><option>기타비용</option>
-            </optgroup>
-            <optgroup label="수입">
-              <option>근로소득</option><option>금융소득</option><option>기타소득</option>
-            </optgroup>
-            <optgroup label="투자">
-              <option>예적금</option><option>주식</option><option>코인</option>
-              <option>연금</option><option>부동산</option>
-            </optgroup>
-            <option>기타</option>
+          <select id="f-cat" onchange="updateDetailCat()">
+            <!-- JS에서 자동 생성됨 -->
           </select>
         </div>
-        <!-- 3. 내용 -->
-        <div class="form-group"><label>내용</label><input type="text" id="f-title" placeholder="마트, 카페..."></div>
-        <!-- 4. 날짜 -->
+        
+        <!-- 3. 세부내용 (새로 추가됨!) -->
+        <div class="form-group"><label>세부내용</label>
+          <select id="f-detail">
+            <!-- JS에서 자동 생성됨 -->
+          </select>
+        </div>
+
+        <!-- 4. 내용 (직접 입력) -->
+        <div class="form-group"><label>내용 (어디서 썼나요?)</label><input type="text" id="f-title" placeholder="이마트, 스타벅스..."></div>
+        <!-- 5. 날짜 -->
         <div class="form-group"><label>날짜</label><input type="date" id="f-date"></div>
-        <!-- 5. 금액 -->
-        <div class="form-group"><label>금액</label><input type="text" inputmode="numeric" id="f-amount" placeholder="15,000"></div>
+        <!-- 6. 금액 -->
+        <div class="form-group full"><label>금액</label><input type="text" inputmode="numeric" id="f-amount" placeholder="15,000"></div>
       </div>
       
       <!-- 버튼 영역 -->
@@ -1157,6 +1149,12 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
 <div class="toast" id="toast"></div>
 
 <script>
+
+// 앱 시작 시 초기 세팅을 위해 한 번 실행
+setTimeout(() => {
+  updateCatOptions();
+}, 100);
+
 // 즐겨찾기 데이터 상태
 let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
 
@@ -1223,7 +1221,6 @@ function saveFavorites() {
 // 앱 시작 시 즐겨찾기 렌더링 실행 (기존 startApp() 함수 내부나 맨 아래에 추가)
 setTimeout(renderFavorites, 100);
 
-
 const CATEGORY_MAP = {
   income: {
     '근로소득': ['탁이 급여', '탁이 특별상여', '연말정산환급금', '퇴직연금적립액', '솔이 급여', '솔이 특별상여'],
@@ -1236,15 +1233,15 @@ const CATEGORY_MAP = {
     '교통비': ['대중교통이용료', '탁 주유비', '탁 통행료', '주차비', '차량 관리비', '솔 주유비', '솔 통행료'],
     '육아비': ['사교육비', '교육자재 구매비', '장난감 구매비', '교육기관 비용', '육아용품 구매비', '육아모임비'],
     '통신비': ['전화 요금', '인터넷 이용료', '우편 이용료'],
-    '문화생활비': ['OTT 구독료', '앱 서비스 구독료', '도서구입비', '영화/공연 관람료', '게임 구매/현질', '각종 입장권', '기타 문화생활비', '데이트 비용'],
+    '문화생활비': ['OTT 구독료', '앱 서비스 구독료', '도서구입비', '영화/공연 관람료', '운동', '각종 입장권', '기타 문화생활비', '데이트 비용'],
     '여행경비': ['항공료', '숙박비', '여행 식비', '관광 입장료', '기념품 구입비', '기타 교통비', '환전'],
     '의료비': ['병원비', '약제비', '건강식품 구입비', '기타 의료비', '산부인과', '보험료'],
     '사회생활비': ['모임비', '경조사비', '기타 사회생활비'],
     '효도비': ['데이케어 관련', '선물/용돈', '기타 효도비'],
     '금융비용': ['신용대출 이자', '연회비', '기현대출이자', '솔이대출이자', '탁회사대출이자'],
     '세금': ['재산세', '자동차세', '지방세', '과태료', '기타세금'],
-    '기타비용': ['잡지출', '잔고 맞추기용'],
-    '품위유지비': ['의류비', '미용실', '화장품 등']
+    '품위유지비': ['의류비', '미용실', '화장품 등'],
+    '기타비용': ['탁비용', '솔비용', '잡지출', '잔고 맞추기용']
   },
   invest: {
     '예적금': ['협우회 상환', '솔 주택청약'],
@@ -1705,20 +1702,27 @@ function setType(t) {
   updateCatOptions();
 }
 
+// 2. 대분류(수입/지출/투자) 선택 시 소분류 업데이트
 function updateCatOptions() {
-  const selCat = document.getElementById('f-cat');
-  if (!selCat) return;
+  const sel = document.getElementById('f-cat');
+  // 현재 선택된 대분류(currentType)에 해당하는 소분류 목록 가져오기
   const cats = Object.keys(CATEGORY_MAP[currentType] || {});
-  selCat.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  updateSubcatOptions(); 
+  
+  sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  
+  // 소분류가 바뀌었으니 세부내용도 자동으로 업데이트
+  updateDetailCat();
 }
 
-function updateSubcatOptions() {
-  const selCat = document.getElementById('f-cat').value;
-  const selSubcat = document.getElementById('f-subcat');
-  if (!selSubcat) return;
-  const subcats = CATEGORY_MAP[currentType][selCat] || ['기타'];
-  selSubcat.innerHTML = subcats.map(sc => `<option value="${sc}">${sc}</option>`).join('');
+
+
+// 3. 소분류 선택 시 세부내용 업데이트
+function updateDetailCat() {
+  const cat = document.getElementById('f-cat').value;
+  const detailSel = document.getElementById('f-detail');
+    // 현재 대분류 -> 선택된 소분류에 해당하는 세부내용 배열 가져오기
+  const details = CATEGORY_MAP[currentType][cat] || ['기타'];
+    detailSel.innerHTML = details.map(d => `<option value="${d}">${d}</option>`).join('');
 }
 
 function addManual() {
