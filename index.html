@@ -1214,6 +1214,7 @@ function addFavorite() {
     id: 'fav_' + Date.now(),
     type: currentType,
     cat: document.getElementById('f-cat').value,
+    subcat: document.getElementById('f-detail').value, // ★ 세부내역 추가
     title: title,
     amount: amount
   });
@@ -1227,10 +1228,12 @@ function applyFavorite(id) {
   const f = favorites.find(x => x.id === id);
   if (!f) return;
   
-  setType(f.type); // 대분류 탭 변경
-  document.getElementById('f-cat').value = f.cat; // 소분류 변경
-  document.getElementById('f-title').value = f.title; // 내용 변경
-  document.getElementById('f-amount').value = formatComma(String(f.amount)); // 금액 변경
+  setType(f.type); 
+  document.getElementById('f-cat').value = f.cat; 
+  updateDetailCat(); // ★ 세부내역 목록을 먼저 생성
+  document.getElementById('f-detail').value = f.subcat || ''; // ★ 세부내역 적용
+  document.getElementById('f-title').value = f.title; 
+  document.getElementById('f-amount').value = formatComma(String(f.amount)); 
   
   showToast('입력창에 채워졌습니다. [추가 ✓] 버튼을 눌러주세요!');
 }
@@ -1763,8 +1766,8 @@ function addManual() {
     id: 'tx_' + Date.now(), ts: Date.now(),
     date: document.getElementById('f-date').value || new Date().toISOString().slice(0,10),
     type: currentType,
-    cat: document.getElementById('f-cat').value,
-    subcat: document.getElementById('f-subcat').value,
+     cat: document.getElementById('f-cat').value,
+    subcat: document.getElementById('f-detail').value,
     title,
     amount,
     memo: document.getElementById('f-memo').value
@@ -3695,7 +3698,7 @@ function startApp() {
 }
 
 // ─── FIREBASE 연결 ─────────────────────────────────────────
-// ─── FIREBASE 연결 ─────────────────────────────────────────
+
 function connectFirebase() {
   if (!fbHouseRef) return;
 
