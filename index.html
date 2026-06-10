@@ -517,6 +517,12 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     </div>
   </div>
 
+<div class="section-title">최근 내역</div>
+  <div id="recent-list"></div>
+</div> <!-- page-home 끝 -->
+
+
+
 <!-- STATS -->
 <div id="page-stats" class="page">
   <!-- Fixed/Variable toggle -->
@@ -1723,12 +1729,13 @@ function renderInputForm() {
 // 2. 대분류(수입/지출/투자) 선택 시 소분류 업데이트
 function updateCatOptions() {
   const sel = document.getElementById('f-cat');
-  // 현재 선택된 대분류(currentType)에 해당하는 소분류 목록 가져오기
-  const cats = Object.keys(CATEGORY_MAP[currentType] || {});
   
+  // ⭐ 요소가 없을 경우 함수를 종료하여 에러 방지
+  if (!sel) return; 
+
+  const cats = Object.keys(CATEGORY_MAP[currentType] || {});
   sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
   
-  // 소분류가 바뀌었으니 세부내용도 자동으로 업데이트
   updateDetailCat();
 }
 
@@ -3722,21 +3729,23 @@ function startApp() {
   document.querySelector('.bottom-nav').style.display = '';
   document.getElementById('page-home').style.display = '';
 
+  // 1. 입력창을 가장 먼저 그립니다 (f-cat, f-date 등이 이때 생성됨)
+  renderInputForm(); 
+
   if (typeof firebase !== 'undefined') {
     if (!db) initFirebase();
     if (db && shareCode) {
       fbHouseRef = db.ref('households/' + shareCode);
       connectFirebase();
     }
-  } else {
-    showSyncBadge('📴 오프라인 모드', 'red');
   }
 
+  // 2. 그 다음 데이터를 채웁니다
   renderSummary();
   renderRecent();
   updateMonthLabel();
   initCommaInputs();
-  renderInputForm(); 
+  renderFavorites();
 }
 
 // ─── FIREBASE 연결 ─────────────────────────────────────────
@@ -4096,7 +4105,6 @@ function initCommaInputs() {
 }
 
 // ─── ORIGINAL INIT ───────────────────────────────────────
-document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
 updateMonthLabel();
 renderSummary();
 renderRecent();
