@@ -1321,10 +1321,6 @@ let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
 let evaluations = JSON.parse(localStorage.getItem('evaluations') || '{}');
 let loans = JSON.parse(localStorage.getItem('loans') || '[]');
 
-function saveData() {
-  localStorage.setItem('txs', JSON.stringify(transactions));
-}
-
 // ─── NAV ─────────────────────────────────────────────────
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1788,11 +1784,6 @@ function addManual() {
   renderSummary();
   renderRecent();
   showToast('✓ 추가되었습니다!');
-}
-  saveData();
-  document.getElementById('f-amount').value = '';
-  document.getElementById('f-title').value = '';
-  renderSummary(); renderRecent();
 }
 
 // ─── RECENT ──────────────────────────────────────────────
