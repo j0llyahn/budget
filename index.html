@@ -1199,38 +1199,76 @@ function renderFavorites() {
 
 // 현재 입력된 내용을 즐겨찾기로 저장
 function addFavorite() {
-  const title = document.getElementById('f-title').value.trim();
-  const amount = parseComma(document.getElementById('f-amount').value);
-  if (!title || !amount) { showToast('내용과 금액을 먼저 입력해주세요!'); return; }
+  const titleInput = document.getElementById('f-title');
+  const title = titleInput ? titleInput.value.trim() : "";
   
-  favorites.push({
+  if (!title) { 
+    showToast('내용을 먼저 입력해주세요 (예: 월급, 주담대 상환 등)'); 
+    return; 
+  }
+
+  let favData = {
     id: 'fav_' + Date.now(),
-    type: currentType,
-    cat: document.getElementById('f-cat').value,
-    subcat: document.getElementById('f-detail').value, // ★ 세부내역 추가
-    title: title,
-    amount: amount
-  });
-  saveFavorites();
-  renderFavorites();
-  showToast('⭐ 즐겨찾기에 등록되었습니다!');
+    type: currentType, // income, expense, invest, loan 중 하나
+    title: title
+  };
+
+  // 현재 선택된 탭에 따라 가져올 데이터가 다름
+  if (currentType === 'loan') {
+    // 대출 탭일 때
+    const loanIdEl = document.getElementById('f-loan-id');
+    const pAmtEl = document.getElementById('f-amount-principal');
+    const iAmtEl = document.getElementById('f-amount-interest');
+
+    if (!loanIdEl) return; // 에러 방지
+
+    favData.loanId = loanIdEl.value;
+    favData.principal = parseComma(pAmtEl ? pAmtEl.value : "0");
+    favData.interest = parseComma(iAmtEl ? iAmtEl.value : "0");
+  } else {
+    // 수입, 지출, 투자 탭일 때
+    const catEl = document.getElementById('f-cat');
+    const detailEl = document.getElementById('f-detail');
+    const amtEl = document.getElementById('f-amount');
+
+    if (!catEl || !detailEl) return; // 에러 방지
+
+    favData.cat = catEl.value;
+    favData.subcat = detailEl.value;
+    favData.amount = parseComma(amtEl ? amtEl.value : "0");
+  }
+
+  favorites.push(favData);
+  saveData(); // 로컬 및 Firebase 저장
+  renderFavorites(); // 즐겨찾기 바 새로고침
+  showToast('⭐ ' + currentType + ' 즐겨찾기에 등록되었습니다!');
 }
 
-// 즐겨찾기 칩을 눌렀을 때 폼에 내용 채우기
 function applyFavorite(id) {
   const f = favorites.find(x => x.id === id);
   if (!f) return;
   
-  setType(f.type); 
-  document.getElementById('f-cat').value = f.cat; 
-  updateDetailCat(); // ★ 세부내역 목록을 먼저 생성
-  document.getElementById('f-detail').value = f.subcat || ''; // ★ 세부내역 적용
-  document.getElementById('f-title').value = f.title; 
-  document.getElementById('f-amount').value = formatComma(String(f.amount)); 
-  
-  showToast('입력창에 채워졌습니다. [추가 ✓] 버튼을 눌러주세요!');
-}
+  // 1. 먼저 해당 탭으로 이동 (입력창 구조를 바꿈)
+  if (f.type !== currentType) {
+    setType(f.type);
+  }
 
+  // 2. 입력창이 그려질 시간을 아주 잠깐(0.01초) 준 뒤 값을 채움
+  setTimeout(() => {
+    if (f.type === 'loan') {
+      if(document.getElementById('f-loan-id')) document.getElementById('f-loan-id').value = f.loanId;
+      if(document.getElementById('f-amount-principal')) document.getElementById('f-amount-principal').value = f.principal ? f.principal.toLocaleString() : '';
+      if(document.getElementById('f-amount-interest')) document.getElementById('f-amount-interest').value = f.interest ? f.interest.toLocaleString() : '';
+    } else {
+      if(document.getElementById('f-cat')) document.getElementById('f-cat').value = f.cat;
+      updateDetailCat(); // 세부내역 목록 업데이트
+      if(document.getElementById('f-detail')) document.getElementById('f-detail').value = f.subcat;
+      if(document.getElementById('f-amount')) document.getElementById('f-amount').value = f.amount ? f.amount.toLocaleString() : '';
+    }
+    if(document.getElementById('f-title')) document.getElementById('f-title').value = f.title;
+    showToast('⭐ 즐겨찾기가 적용되었습니다.');
+  }, 10);
+}
 // 즐겨찾기 삭제
 function deleteFavorite(id) {
   favorites = favorites.filter(x => x.id !== id);
