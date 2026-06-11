@@ -1452,22 +1452,30 @@ function monthTxs() {
 
 // ─── SUMMARY ─────────────────────────────────────────────
 function renderSummary() {
-  const txs = monthTxs();
-  const inc = txs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const exp = txs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  const inv = txs.filter(t=>t.type==='invest').reduce((s,t)=>s+t.amount,0);
+  const txs = monthTxs(); // 이번 달 데이터만 필터링된 상태
   
-  // 기본 카드 업데이트
+  // 1. 기본 수입/지출/투자 합산
+  const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  
+  // ⭐ 투자 합계: 일반 투자 + 대출 원금 상환액 모두 포함
+  const inv = txs.filter(t => t.type === 'invest').reduce((s, t) => s + t.amount, 0);
+  
+  // 2. 대출 전용 통계 합산
+  // 카테고리가 '대출상환'인 것만 추출
+  const loanPrincipal = txs.filter(t => t.cat === '대출상환').reduce((s, t) => s + t.amount, 0);
+  // 카테고리가 '금융비용'인 것만 추출
+  const loanInterest = txs.filter(t => t.cat === '금융비용').reduce((s, t) => s + t.amount, 0);
+  // 모든 대출의 현재 잔액 합계
+  const totalDebt = loans.reduce((s, l) => s + l.balance, 0);
+
+  // 3. 화면에 뿌려주기 (ID가 있는 경우에만)
   if(document.getElementById('s-income')) document.getElementById('s-income').textContent = fmt(inc);
   if(document.getElementById('s-expense')) document.getElementById('s-expense').textContent = fmt(exp);
   if(document.getElementById('s-invest')) document.getElementById('s-invest').textContent = fmt(inv);
   if(document.getElementById('s-balance')) document.getElementById('s-balance').textContent = fmt(inc - exp);
 
-  // 대출 통계 업데이트 (요소가 있을 때만 실행)
-  const loanPrincipal = txs.filter(t => t.cat === '대출상환').reduce((s, t) => s + t.amount, 0);
-  const loanInterest = txs.filter(t => t.cat === '금융비용').reduce((s, t) => s + t.amount, 0);
-  const totalDebt = loans.reduce((s, l) => s + l.balance, 0);
-
+  // 대출 관련 카드 업데이트
   if(document.getElementById('s-loan-principal')) document.getElementById('s-loan-principal').textContent = fmt(loanPrincipal);
   if(document.getElementById('s-loan-interest')) document.getElementById('s-loan-interest').textContent = fmt(loanInterest);
   if(document.getElementById('s-loan-total')) document.getElementById('s-loan-total').textContent = fmt(totalDebt);
@@ -1819,7 +1827,7 @@ function updateDetailCat() {
 function addManual() {
   const date = document.getElementById('f-date').value;
   const title = document.getElementById('f-title').value;
-  const now = Date.now(); // 고유 ID와 정렬을 위한 타임스탬프
+  const now = Date.now();
 
   if (currentType === 'loan') {
     const loanId = document.getElementById('f-loan-id').value;
@@ -1831,49 +1839,49 @@ function addManual() {
 
     if (principal === 0 && interest === 0) { showToast('금액을 입력해주세요.'); return; }
 
+    // 1. 원금 상환 내역 추가
     if (principal > 0) {
-      // 원금 상환 (타입은 invest지만, 대출 관련임을 표시하기 위해 별도 속성 추가)
       const pTx = { 
         id: 'tx_p_' + now, 
-        date, 
+        date: date, 
         type: 'invest', 
         cat: '대출상환', 
         subcat: loanObj.name, 
         title: title || loanObj.name + ' 원금상환', 
         amount: principal, 
         ts: now,
-        isLoan: true // 대출 관련 내역임을 표시
+        isLoan: true 
       };
-      transactions.unshift(pTx);
-      loanObj.balance = Math.max(0, loanObj.balance - principal);
+      transactions.unshift(pTx); // 배열 맨 앞에 추가
+      loanObj.balance = Math.max(0, loanObj.balance - principal); // 대출 잔액 차감
       if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(pTx);
     }
     
+    // 2. 이자 납부 내역 추가
     if (interest > 0) {
-      // 이자 납부
       const iTx = { 
         id: 'tx_i_' + (now + 1), 
-        date, 
+        date: date, 
         type: 'expense', 
         cat: '금융비용', 
         subcat: loanObj.name, 
         title: title || loanObj.name + ' 이자납부', 
         amount: interest, 
         ts: now + 1,
-        isLoan: true // 대출 관련 내역임을 표시
+        isLoan: true 
       };
-      transactions.unshift(iTx);
+      transactions.unshift(iTx); // 배열 맨 앞에 추가
       if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(iTx);
     }
-    saveLoans(); // 대출 잔액 업데이트
+    saveLoans(); // 대출 잔액 변경사항 저장
   } else {
-    // 일반 수입/지출/투자
+    // 일반 내역 저장
     const amount = parseComma(document.getElementById('f-amount').value);
     if (!amount) { showToast('금액을 입력해주세요'); return; }
     
     const tx = { 
       id: 'tx_' + now, 
-      date, 
+      date: date, 
       type: currentType, 
       cat: document.getElementById('f-cat').value, 
       subcat: document.getElementById('f-detail').value, 
@@ -1886,12 +1894,17 @@ function addManual() {
     if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(tx);
   }
 
-  saveData(); // Firebase 및 로컬 저장
-  renderSummary();
-  renderRecent(); // 홈 화면 최근 내역 갱신
+  // ⭐ 중요: 데이터를 저장하고 모든 화면을 갱신합니다.
+  saveData(); 
+  renderSummary(); // 상단 요약 카드 갱신
+  renderRecent();  // 홈 화면 최근 내역 갱신
+  if (typeof renderRecords === 'function') renderRecords(); // 내역 화면 갱신
+  
   renderInputForm(); // 입력창 초기화
-  showToast('✓ 저장되었습니다!');
+  showToast('✓ 기록되었습니다!');
 }
+
+
 // ─── RECENT ──────────────────────────────────────────────
 function renderRecent() {
   const txs = monthTxs().sort((a,b)=>b.ts-a.ts).slice(0,8);
