@@ -1824,6 +1824,7 @@ function updateDetailCat() {
   const details = CATEGORY_MAP[currentType][cat] || ['기타'];
     detailSel.innerHTML = details.map(d => `<option value="${d}">${d}</option>`).join('');
 }
+
 function addManual() {
   const date = document.getElementById('f-date').value;
   const title = document.getElementById('f-title').value;
@@ -1839,71 +1840,42 @@ function addManual() {
 
     if (principal === 0 && interest === 0) { showToast('금액을 입력해주세요.'); return; }
 
-    // 1. 원금 상환 내역 추가
     if (principal > 0) {
-      const pTx = { 
-        id: 'tx_p_' + now, 
-        date: date, 
-        type: 'invest', 
-        cat: '대출상환', 
-        subcat: loanObj.name, 
-        title: title || loanObj.name + ' 원금상환', 
-        amount: principal, 
-        ts: now,
-        isLoan: true 
-      };
-      transactions.unshift(pTx); // 배열 맨 앞에 추가
-      loanObj.balance = Math.max(0, loanObj.balance - principal); // 대출 잔액 차감
-      if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(pTx);
+      transactions.unshift({ 
+        id: 'tx_p_' + now, date, type: 'invest', cat: '대출상환', 
+        subcat: loanObj.name, title: title || loanObj.name + ' 원금상환', 
+        amount: principal, ts: now, isLoan: true 
+      });
+      loanObj.balance = Math.max(0, loanObj.balance - principal);
     }
-    
-    // 2. 이자 납부 내역 추가
     if (interest > 0) {
-      const iTx = { 
-        id: 'tx_i_' + (now + 1), 
-        date: date, 
-        type: 'expense', 
-        cat: '금융비용', 
-        subcat: loanObj.name, 
-        title: title || loanObj.name + ' 이자납부', 
-        amount: interest, 
-        ts: now + 1,
-        isLoan: true 
-      };
-      transactions.unshift(iTx); // 배열 맨 앞에 추가
-      if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(iTx);
+      transactions.unshift({ 
+        id: 'tx_i_' + (now + 1), date, type: 'expense', cat: '금융비용', 
+        subcat: loanObj.name, title: title || loanObj.name + ' 이자납부', 
+        amount: interest, ts: now + 1, isLoan: true 
+      });
     }
-    saveLoans(); // 대출 잔액 변경사항 저장
+    saveLoans();
   } else {
-    // 일반 내역 저장
     const amount = parseComma(document.getElementById('f-amount').value);
     if (!amount) { showToast('금액을 입력해주세요'); return; }
     
-    const tx = { 
-      id: 'tx_' + now, 
-      date: date, 
-      type: currentType, 
+    transactions.unshift({ 
+      id: 'tx_' + now, date, type: currentType, 
       cat: document.getElementById('f-cat').value, 
       subcat: document.getElementById('f-detail').value, 
       title: title || document.getElementById('f-detail').value, 
-      amount: amount, 
-      ts: now,
-      memo: ""
-    };
-    transactions.unshift(tx);
-    if (typeof sendToGoogleSheet === 'function') sendToGoogleSheet(tx);
+      amount: amount, ts: now, memo: "" 
+    });
   }
 
-  // ⭐ 중요: 데이터를 저장하고 모든 화면을 갱신합니다.
-  saveData(); 
-  renderSummary(); // 상단 요약 카드 갱신
-  renderRecent();  // 홈 화면 최근 내역 갱신
-  if (typeof renderRecords === 'function') renderRecords(); // 내역 화면 갱신
-  
-  renderInputForm(); // 입력창 초기화
-  showToast('✓ 기록되었습니다!');
+  saveData();
+  renderSummary();
+  renderRecent();
+  if (typeof renderRecords === 'function') renderRecords();
+  renderInputForm();
+  showToast('✓ 저장되었습니다!');
 }
-
 
 // ─── RECENT ──────────────────────────────────────────────
 function renderRecent() {
@@ -4046,53 +4018,6 @@ function saveData() {
   uploadToFirebase();
 }
 
-// 1. 구글 시트 추가 함수
-function sendToGoogleSheet(tx) {
- alert("구글 시트로 전송을 시작합니다!");
-  // ★ 여기에 새로 발급받은 URL을 넣어주세요! ★
-  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
-
-  const data = {
-    action: 'insert',
-    id: tx.id,
-    date: tx.date,
-    type: tx.type === 'income' ? '수입' : tx.type === 'expense' ? '지출' : '투자',
-    cat: tx.cat,
-    subcat: tx.subcat || '',
-    title: tx.title,
-    amount: tx.amount,
-    memo: tx.memo || ''
-  };
-
-  try {
-    fetch(GOOGLE_SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(function(e){});
-  } catch (e) {}
-}
-
-// 2. 구글 시트 삭제 함수
-function deleteFromGoogleSheet(txId) {
-  // ★ 위와 똑같은 URL을 넣어주세요! ★
-  const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwzaqv6fdRHeD_i5KCQ7fbBBrsmo_LmB9TscVFVq9vaz-oHGHc3HNU6uAS-lB80_R_Kwg/exec";
-
-  const data = { 
-    action: 'delete',
-    id: txId
-  };
-
-  try {
-    fetch(GOOGLE_SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }).catch(function(e){});
-  } catch (e) {}
-}
 
 // 3. 기존 내역 삭제 함수 (덮어쓰기)
 function deleteTx(id) {
@@ -4102,9 +4027,6 @@ function deleteTx(id) {
   renderRecent(); 
   renderRecords();
   
-  // 구글 시트에서도 삭제하도록 호출
-  deleteFromGoogleSheet(id); 
-}
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
 function showShareInfo() {
