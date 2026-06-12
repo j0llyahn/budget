@@ -1214,6 +1214,12 @@ setTimeout(() => {
 }, 100);
 
 
+// ─── FIREBASE INIT ────────────────────────────────────────
+let db = null;
+let fbHouseRef = null;
+let shareCode = localStorage.getItem('shareCode') || '';
+let isSyncing = false;
+let syncDebounce = null;
 
 // 즐겨찾기 목록 화면에 그리기
 function renderFavorites() {
@@ -1915,10 +1921,15 @@ function updateDetailCat() {
  * 직접 입력 폼의 데이터를 저장하는 함수
  * 대출 상환 시 원금(투자/비용 선택에 따라 분리)과 이자를 각각 저장합니다.
  */
+/**
+ * 직접 입력 폼의 데이터를 저장하는 함수
+ * 대출 상환 시 원금(투자/비용 선택에 따라 분리)과 이자를 각각 저장합니다.
+ */
 function addManual() {
   const dateEl = document.getElementById('f-date');
   const date = dateEl ? dateEl.value : "";
-  const title = document.getElementById('f-title').value;
+  const titleEl = document.getElementById('f-title');
+  const title = titleEl ? titleEl.value : "";
   const now = Date.now();
 
   // 1. 날짜 필수 입력 체크
@@ -1929,7 +1940,8 @@ function addManual() {
 
   // 2. 대출 상환 모드일 때
   if (currentType === 'loan') {
-    const loanId = document.getElementById('f-loan-id').value;
+    const loanIdEl = document.getElementById('f-loan-id');
+    const loanId = loanIdEl ? loanIdEl.value : "";
     const loanObj = loans.find(l => l.id === loanId);
     
     if (!loanObj) {
@@ -1998,19 +2010,24 @@ function addManual() {
 
   } else {
     // 3. 일반 입력 모드 (수입/지출/투자)
-    const amount = parseComma(document.getElementById('f-amount').value);
+    const amountEl = document.getElementById('f-amount');
+    const amount = parseComma(amountEl ? amountEl.value : "0");
+    
     if (!amount) {
       showToast('금액을 입력해주세요.');
       return;
     }
 
+    const catEl = document.getElementById('f-cat');
+    const detailEl = document.getElementById('f-detail');
+
     const tx = {
       id: 'tx_' + now,
       date: date,
       type: currentType,
-      cat: document.getElementById('f-cat').value,
-      subcat: document.getElementById('f-detail').value,
-      title: title || document.getElementById('f-detail').value,
+      cat: catEl ? catEl.value : "기타",
+      subcat: detailEl ? detailEl.value : "기타",
+      title: title || (detailEl ? detailEl.value : "내역"),
       amount: amount,
       ts: now,
       memo: ""
@@ -2018,7 +2035,7 @@ function addManual() {
     transactions.unshift(tx);
   }
 
-  // 4. 공통 마무리 작업
+  // 4. 공통 마무리 작업 (저장 및 화면 갱신)
   saveData();       // 전체 내역 저장 및 Firebase 업로드
   renderSummary();  // 홈 화면 요약 카드 갱신
   renderRecent();   // 홈 화면 최근 내역 갱신
@@ -2031,15 +2048,6 @@ function addManual() {
   
   showToast('✓ 저장되었습니다!');
 }
-
-  // 3. 공통 저장 및 화면 갱신
-  saveData();
-  renderSummary();
-  renderRecent();
-  if (typeof renderRecords === 'function') renderRecords();
-  renderInputForm(); // 입력창 초기화
-  showToast('✓ 저장되었습니다!');
-
 
 // ─── RECENT ──────────────────────────────────────────────
 function renderRecent() {
@@ -4162,12 +4170,6 @@ const firebaseConfig = {
   appId: "1:58643029160:web:f7016010a8a25c95ec769d"
 };
 
-// ─── FIREBASE INIT ────────────────────────────────────────
-let db = null;
-let fbHouseRef = null;
-let shareCode = localStorage.getItem('shareCode') || '';
-let isSyncing = false;
-let syncDebounce = null;
 
 function initFirebase() {
   try {
