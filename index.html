@@ -4245,88 +4245,117 @@ function startApp() {
 function connectFirebase() {
   if (!fbHouseRef) return;
 
+  showSyncBadge('🔄 연결 중...', 'yellow');
+
   fbHouseRef.on('value', (snapshot) => {
+    if (isSyncing) return; 
     const data = snapshot.val();
-    if (!data) return;
-
-    // ⭐ [핵심] 서버 데이터가 내 폰의 최신 수정본보다 옛날 것이면 무시!
-    if (data.lastUpdated && data.lastUpdated <= localLastUpdated) {
-      console.log("옛날 데이터 수신 거부 (좀비 차단)");
-      return; 
+    if (!data) {
+      uploadToFirebase();
+      return;
     }
-
-    console.log("새로운 데이터 수신 및 동기화");
-    localLastUpdated = data.lastUpdated || 0;
-    localStorage.setItem('lastUpdated', localLastUpdated);
-
-    // 데이터 할당
-    transactions = data.transactions || [];
-    accounts = data.accounts || [];
-    loans = data.loans || [];
-    favorites = data.favorites || [];
-    plans = data.plans || [];
-    planChecks = data.planChecks || {};
-    budgetLimits = data.budgetLimits || {};
-    activeBudgetKeys = data.activeBudgetKeys || ["식비", "문화생활", "품위유지"];
-    giftChildren = data.giftChildren || [];
-
-    // 로컬 저장소 업데이트
-    localStorage.setItem('txs', JSON.stringify(transactions));
-    localStorage.setItem('accounts', JSON.stringify(accounts));
-    // ... 나머지 localStorage 저장 생략 (기존 코드 유지)
-
-    // 화면 갱신
-    renderSummary();
-    renderRecent();
-    renderMonthBar();
-    if (typeof renderRecords === 'function') renderRecords();
-    if (typeof renderLoanPage === 'function') renderLoanPage();
-    if (typeof renderFavorites === 'function') renderFavorites();
     
-    showSyncBadge('✓ 동기화됨', 'green');
-    hideSyncBadge();
+    let changed = false;
+    
+    if (data.transactions) {
+      const remoteMap = {};
+      data.transactions.forEach(t => { if(t && t.id) remoteMap[t.id] = t; });
+      const localMap = {};
+      transactions.forEach(t => { if(t && t.id) localMap[t.id] = t; });
+      
+      Object.keys(remoteMap).forEach(id => {
+        if (!localMap[id]) {
+          transactions.unshift(remoteMap[id]);
+          changed = true;
+        }
+      });
+      
+      if (changed) {
+        transactions.sort((a,b) => (b.ts||0) - (a.ts||0));
+        localStorage.setItem('txs', JSON.stringify(transactions));
+      }
+    }
+    
+    if (data.accounts && JSON.stringify(data.accounts) !== JSON.stringify(accounts)) {
+      accounts = data.accounts; localStorage.setItem('accounts', JSON.stringify(accounts)); changed = true;
+    }
+    if (data.loans && JSON.stringify(data.loans) !== JSON.stringify(loans)) {
+      loans = data.loans; localStorage.setItem('loans', JSON.stringify(loans)); changed = true;
+    }
+    if (data.favorites && JSON.stringify(data.favorites) !== JSON.stringify(favorites)) {
+      favorites = data.favorites; localStorage.setItem('favorites', JSON.stringify(favorites)); changed = true;
+    }
+    if (data.plans) { plans = data.plans; localStorage.setItem('plans', JSON.stringify(plans)); changed = true; }
+    if (data.budgetLimits) { Object.assign(budgetLimits, data.budgetLimits); }
+    if (data.activeBudgetKeys) { activeBudgetKeys = data.activeBudgetKeys; BUDGET_CATS = getBudgetCats(); saveBudgetLimits(); }
+    if (data.giftChildren) { giftChildren = data.giftChildren; localStorage.setItem('giftChildren', JSON.stringify(giftChildren)); changed = true; }
+
+    if (changed) {
+      renderSummary(); renderRecent();
+      if (typeof renderRecords === 'function') renderRecords();
+      if (typeof renderLoanPage === 'function') renderLoanPage();
+      if (typeof renderFavorites === 'function') renderFavorites();
+      showSyncBadge('✓ 동기화됨', 'green');
+      hideSyncBadge();
+    } else {
+      showSyncBadge('✓ 연결됨', 'green');
+      hideSyncBadge();
+    }
+  }, (error) => {
+    showSyncBadge('⚠ 오프라인', 'red');
+  });
+
+  db.ref('.info/connected').on('value', (snap) => {
+    if (snap.val() === true) { showSyncBadge('✓ 실시간 연결', 'green'); hideSyncBadge(); } 
+    else { showSyncBadge('⚠ 오프라인', 'red'); }
   });
 }
 // ─── saveData override ─────────────────────────────────────
 function saveData() {
-  console.log("데이터 저장 중...");
+  localStorage.setItem('txs', JSON.stringify(transactions));
+  localStorage.setItem('accounts', JSON.stringify(accounts));
+  localStorage.setItem('evaluations', JSON.stringify(evaluations));
+  localStorage.setItem('plans', JSON.stringify(plans));
+  localStorage.setItem('planChecks', JSON.stringify(planChecks));
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+  localStorage.setItem('loans', JSON.stringify(loans));
+  localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
   
-  if (typeof transactions !== 'undefined') localStorage.setItem('txs', JSON.stringify(transactions));
-  if (typeof accounts !== 'undefined') localStorage.setItem('accounts', JSON.stringify(accounts));
-  if (typeof plans !== 'undefined') localStorage.setItem('plans', JSON.stringify(plans));
-  if (typeof planChecks !== 'undefined') localStorage.setItem('planChecks', JSON.stringify(planChecks));
-  if (typeof favorites !== 'undefined') localStorage.setItem('favorites', JSON.stringify(favorites));
-  if (typeof loans !== 'undefined') localStorage.setItem('loans', JSON.stringify(loans));
-  if (typeof giftChildren !== 'undefined') localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
-
-  // ⭐ 서버 업로드 함수를 실행하고 그 결과를 반환합니다.
-  return uploadToFirebase();
+  uploadToFirebase();
 }
 
 function uploadToFirebase() {
-  if (!fbHouseRef) return Promise.resolve();
-
-  const dataToSave = {
-    lastUpdated: Date.now(),
-    transactions: transactions || [],
-    accounts: accounts || [],
-    loans: loans || [],
-    favorites: favorites || [],
-    plans: plans || [],
-    planChecks: planChecks || {},
-    budgetLimits: budgetLimits || {},
-    activeBudgetKeys: activeBudgetKeys || ["식비", "문화생활", "품위유지"],
-    giftChildren: giftChildren || []
-  };
-
-  return fbHouseRef.set(dataToSave)
-    .then(() => {
-      console.log("Firebase 서버 동기화 완료");
-    })
-    .catch((error) => {
-      console.error("Firebase 동기화 실패:", error);
-      showToast("서버 저장에 실패했습니다.");
-    });
+  if (!fbHouseRef || typeof firebase === 'undefined') return;
+  clearTimeout(syncDebounce);
+  syncDebounce = setTimeout(() => {
+    isSyncing = true;
+    showSyncBadge('🔄 저장 중...', 'yellow');
+    
+    const data = {
+      transactions: transactions.slice(0, 3000),
+      accounts,
+      plans,
+      planChecks,
+      budgetLimits,
+      activeBudgetKeys,
+      loans,
+      favorites,
+      giftChildren,
+      lastUpdated: Date.now()
+    };
+    
+    fbHouseRef.set(data)
+      .then(() => {
+        showSyncBadge('✓ 저장됨', 'green');
+        hideSyncBadge();
+        isSyncing = false;
+      })
+      .catch(e => {
+        showSyncBadge('⚠ 저장 실패', 'red');
+        console.error('업로드 실패:', e);
+        isSyncing = false;
+      });
+  }, 1500);
 }
 
 function deleteTx(id) {
