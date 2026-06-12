@@ -4294,33 +4294,42 @@ function saveData() {
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
 
-  const txToDelete = transactions.find(t => t.id === id);
-  if (!txToDelete) return;
+  // 1. 동기화 차단 시작 (서버 데이터가 내 폰을 덮어쓰지 못하게 함)
+  isSyncing = true; 
 
-  // 대출 원금 복구 로직
+  const txToDelete = transactions.find(t => t.id === id);
+  if (!txToDelete) {
+    isSyncing = false;
+    return;
+  }
+
+  // 2. 대출 원금 복구 로직 (대출 상환 내역일 경우)
   if (txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
     const loanObj = loans.find(l => l.id === txToDelete.loanId);
     if (loanObj) {
       loanObj.balance += txToDelete.amount;
-      saveLoans();
+      saveLoans(); 
     }
   }
 
-  // 데이터 삭제
+  // 3. 로컬 배열에서 즉시 삭제
   transactions = transactions.filter(t => t.id !== id);
+
+  // 4. 저장 및 서버 업로드 (saveData 함수 호출)
   saveData(); 
 
-  // 화면 갱신
+  // 5. 화면 즉시 갱신
   renderSummary(); 
   renderRecent(); 
   if (typeof renderRecords === 'function') renderRecords();
-
-  // ⭐ 중요: 대출 상세 모달이 열려있다면 히스토리도 즉시 갱신
-  if (txToDelete.loanId) {
+  if (txToDelete.loanId && typeof renderLoanHistory === 'function') {
     renderLoanHistory(txToDelete.loanId);
   }
-  
+
   showToast('✓ 삭제되었습니다.');
+  
+  // 6. 서버에 데이터가 올라갈 시간을 준 뒤(1.5초), 동기화 차단 해제
+  setTimeout(() => { isSyncing = false; }, 1500);
 }
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
