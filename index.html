@@ -1393,6 +1393,8 @@ if (!transactions) {
 let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
 let evaluations = JSON.parse(localStorage.getItem('evaluations') || '{}');
 let loans = JSON.parse(localStorage.getItem('loans') || '[]');
+let plans = JSON.parse(localStorage.getItem('plans') || '[]');
+let planChecks = JSON.parse(localStorage.getItem('planChecks') || '{}');
 
 // ─── NAV ─────────────────────────────────────────────────
 function showPage(name) {
@@ -3051,8 +3053,7 @@ function renderBudgetStatus() {
 }
 
 // ─── FINANCIAL PLAN ──────────────────────────────────────
-let plans = JSON.parse(localStorage.getItem('plans') || '[]');
-let planChecks = JSON.parse(localStorage.getItem('planChecks') || '{}');
+
 
 function savePlans() {
   localStorage.setItem('plans', JSON.stringify(plans));
@@ -4363,20 +4364,17 @@ function uploadToFirebase() {
 
 // ─── saveData override ─────────────────────────────────────
 function saveData() {
-  // 1. 내 폰 로컬 저장소에 임시 저장
-  localStorage.setItem('txs', JSON.stringify(transactions));
-  localStorage.setItem('accounts', JSON.stringify(accounts));
-  localStorage.setItem('evaluations', JSON.stringify(evaluations));
-  localStorage.setItem('plans', JSON.stringify(plans));
-  localStorage.setItem('planChecks', JSON.stringify(planChecks));
-  localStorage.setItem('favorites', JSON.stringify(favorites));
-  localStorage.setItem('loans', JSON.stringify(loans));
-  localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
+  // 변수가 존재할 때만 저장하도록 체크
+  if (typeof transactions !== 'undefined') localStorage.setItem('txs', JSON.stringify(transactions));
+  if (typeof accounts !== 'undefined') localStorage.setItem('accounts', JSON.stringify(accounts));
+  if (typeof plans !== 'undefined') localStorage.setItem('plans', JSON.stringify(plans));
+  if (typeof planChecks !== 'undefined') localStorage.setItem('planChecks', JSON.stringify(planChecks));
+  if (typeof favorites !== 'undefined') localStorage.setItem('favorites', JSON.stringify(favorites));
+  if (typeof loans !== 'undefined') localStorage.setItem('loans', JSON.stringify(loans));
+  if (typeof giftChildren !== 'undefined') localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
 
-  // 2. ⭐ 즉시 서버로 전송 (남편 폰에 바로 뜨게 함)
   uploadToFirebase();
 }
-
 // 3. 기존 내역 삭제 함수 (덮어쓰기)
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
