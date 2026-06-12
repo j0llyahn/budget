@@ -4141,86 +4141,98 @@ function startApp() {
 
 // ─── FIREBASE 연결 ─────────────────────────────────────────
 
+// ─── FIREBASE 실시간 연결 및 동기화 ───────────────────────────
 function connectFirebase() {
   if (!fbHouseRef) return;
 
   showSyncBadge('🔄 연결 중...', 'yellow');
 
-  // 실시간 수신: Firebase → 앱
+  // Firebase 서버의 데이터가 변경될 때마다 실행됨
   fbHouseRef.on('value', (snapshot) => {
-    if (isSyncing) return; // 내가 업로드 중이면 무시
+    // 내가 데이터를 업로드 중일 때는 서버 데이터를 받지 않음 (무한 루프 방지)
+    if (isSyncing) return; 
+
     const data = snapshot.val();
+    
+    // [중요] 좀비 데이터 박멸 로직: 서버에 데이터가 아예 없으면 내 폰 데이터도 비움
     if (!data) {
-      // 빈 DB면 내 데이터를 올림
+      console.log("서버 데이터가 삭제됨. 로컬 데이터를 초기화합니다.");
+      transactions = [];
+      accounts = [];
+      evaluations = {};
+      plans = [];
+      planChecks = {};
+      budgetLimits = {};
+      activeBudgetKeys = ["식비", "문화생활", "품위유지"];
+      loans = [];
+      giftChildren = [];
+      favorites = [];
+      
+      // 로컬 저장소(LocalStorage)도 즉시 비움
+      localStorage.setItem('txs', JSON.stringify(transactions));
+      localStorage.setItem('accounts', JSON.stringify(accounts));
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      // ... 필요한 다른 항목들도 저장
+      
+      renderSummary();
+      renderRecent();
+      if (typeof renderRecords === 'function') renderRecords();
+      if (typeof renderFavorites === 'function') renderFavorites();
+      if (typeof renderLoanPage === 'function') renderLoanPage();
+      
+      showSyncBadge('✨ 초기화됨', 'green');
+      hideSyncBadge();
       return;
     }
     
+    // 서버에 데이터가 있다면 내 휴대폰의 변수들에 덮어씌움
     let changed = false;
-    
-    // 거래 내역 merge
+
     if (data.transactions) {
-      const remoteMap = {};
-      data.transactions.forEach(t => { if(t && t.id) remoteMap[t.id] = t; });
-      const localMap = {};
-      transactions.forEach(t => { if(t && t.id) localMap[t.id] = t; });
-      
-      const remoteIds = Object.keys(remoteMap);
-      
-      remoteIds.forEach(id => {
-        if (!localMap[id]) {
-          transactions.unshift(remoteMap[id]);
-          changed = true;
-        }
-      });
-      
-      if (changed) {
-        transactions.sort((a,b) => (b.ts||0) - (a.ts||0));
-        saveData();
-      }
+      transactions = data.transactions;
+      localStorage.setItem('txs', JSON.stringify(transactions));
+      changed = true;
     }
-    
-    if (data.accounts && JSON.stringify(data.accounts) !== JSON.stringify(accounts)) {
+    if (data.accounts) {
       accounts = data.accounts;
       localStorage.setItem('accounts', JSON.stringify(accounts));
       changed = true;
     }
+    if (data.favorites) {
+      favorites = data.favorites;
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      changed = true;
+    }
+    if (data.loans) {
+      loans = data.loans;
+      localStorage.setItem('loans', JSON.stringify(loans));
+      changed = true;
+    }
     if (data.plans) {
-      const remotePlans = data.plans;
-      if (JSON.stringify(remotePlans) !== JSON.stringify(plans)) {
-        plans = remotePlans;
-        savePlans();
-        changed = true;
-      }
+      plans = data.plans;
+      localStorage.setItem('plans', JSON.stringify(plans));
+      changed = true;
     }
     if (data.budgetLimits) {
-      Object.assign(budgetLimits, data.budgetLimits);
+      budgetLimits = data.budgetLimits;
+      localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
     }
     if (data.activeBudgetKeys) {
       activeBudgetKeys = data.activeBudgetKeys;
-      BUDGET_CATS = getBudgetCats();
-      saveBudgetLimits();
     }
-    if (data.loans && JSON.stringify(data.loans) !== JSON.stringify(loans)) {
-      loans = data.loans;
-      localStorage.setItem('loans', JSON.stringify(loans));
-    }
-    if (data.giftChildren && JSON.stringify(data.giftChildren) !== JSON.stringify(giftChildren)) {
+    if (data.giftChildren) {
       giftChildren = data.giftChildren;
-      saveGiftData();
-    }
-    
-    // ★ 여기에 즐겨찾기(favorites) 동기화 코드 추가 ★
-    if (data.favorites && JSON.stringify(data.favorites) !== JSON.stringify(favorites)) {
-      favorites = data.favorites;
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      renderFavorites(); // 화면에 즐겨찾기 칩 다시 그리기
-      changed = true;
+      localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
     }
 
-
+    // 데이터가 변경되었다면 화면을 다시 그림
     if (changed) {
       renderSummary();
       renderRecent();
+      if (typeof renderRecords === 'function') renderRecords();
+      if (typeof renderFavorites === 'function') renderFavorites();
+      if (typeof renderLoanPage === 'function') renderLoanPage();
+      
       showSyncBadge('✓ 동기화됨', 'green');
       hideSyncBadge();
     } else {
@@ -4228,11 +4240,11 @@ function connectFirebase() {
       hideSyncBadge();
     }
   }, (error) => {
-    showSyncBadge('⚠ 오프라인', 'red');
-    console.error('Firebase 오류:', error);
+    showSyncBadge('⚠ 연결 오류', 'red');
+    console.error('Firebase 수신 오류:', error);
   });
 
-  // 온라인/오프라인 감지
+  // 온라인/오프라인 상태 감지
   db.ref('.info/connected').on('value', (snap) => {
     if (snap.val() === true) {
       showSyncBadge('✓ 실시간 연결', 'green');
