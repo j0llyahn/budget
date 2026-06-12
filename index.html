@@ -458,14 +458,24 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
     <div class="summary-card balance"><div class="lbl">💼 잔액</div><div class="val" id="s-balance">₩0</div></div>
   </div>
 
+<div class="summary-row" style="margin-top: -6px;">
+    <div class="summary-card" style="border-top-color: var(--invest); background: var(--invest-light);">
+      <div class="lbl" style="color: var(--invest);">📈 투자용 원금</div>
+      <div class="val" id="s-inv-prin" style="color: var(--invest); font-size: 1rem;">₩0</div>
+    </div>
+    <div class="summary-card" style="border-top-color: var(--invest); background: #f0f0fb;">
+      <div class="lbl" style="color: var(--invest);">📉 투자용 이자</div>
+      <div class="val" id="s-inv-int" style="color: var(--invest); font-size: 1rem;">₩0</div>
+    </div>
+  </div>
   <div class="summary-row" style="margin-top: -6px;">
     <div class="summary-card" style="border-top-color: var(--terra); background: var(--terra-light);">
-      <div class="lbl" style="color: var(--terra);">📉 이번달 원금상환</div>
-      <div class="val" id="s-loan-principal" style="color: var(--terra);">₩0</div>
+      <div class="lbl" style="color: var(--terra);">🏠 비용용 원금</div>
+      <div class="val" id="s-exp-prin" style="color: var(--terra); font-size: 1rem;">₩0</div>
     </div>
     <div class="summary-card" style="border-top-color: var(--red); background: #fff5f5;">
-      <div class="lbl" style="color: var(--red);">💸 이번달 이자비용</div>
-      <div class="val" id="s-loan-interest" style="color: var(--red);">₩0</div>
+      <div class="lbl" style="color: var(--red);">💸 비용용 이자</div>
+      <div class="val" id="s-exp-int" style="color: var(--red); font-size: 1rem;">₩0</div>
     </div>
   </div>
   <div class="card" style="margin-bottom: 16px; background: var(--text); color: white;">
@@ -1537,27 +1547,55 @@ function monthTxs() {
 function renderSummary() {
   const txs = monthTxs();
 
-  // 1. 순수하게 '타입' 기준으로만 합산 (가장 정확함)
+  // 1. 순수 수입, 지출, 투자 (대출 관련 내역은 제외)
   const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const inv = txs.filter(t => t.type === 'invest').reduce((s, t) => s + t.amount, 0);
+  const pureExp = txs.filter(t => t.type === 'expense' && !t.isLoan).reduce((s, t) => s + t.amount, 0);
+  const pureInv = txs.filter(t => t.type === 'invest' && !t.isLoan).reduce((s, t) => s + t.amount, 0);
 
-  // 2. 대출 전용 대시보드 카드 계산
-  // 원금상환액: 투자용 원금상환 + 비용용 원금상환 모두 합쳐서 보여줌
-  const loanPrincipal = txs.filter(t => t.subcat === '원금상환' || t.subcat === '대출원금상환').reduce((s, t) => s + t.amount, 0);
-  const loanInterest = txs.filter(t => t.subcat === '이자상환').reduce((s, t) => s + t.amount, 0);
-  const totalDebt = loans.reduce((s, l) => s + (Number(l.balance) || 0), 0);
+  // 2. 4가지 대출 상환액 분리 계산
+  let invPrin = 0, invInt = 0, expPrin = 0, expInt = 0;
+  
+  txs.filter(t => t.isLoan).forEach(t => {
+    // 과거 데이터 호환: 내역에 카테고리가 없으면 대출 목록에서 찾아옴
+    let lCat = t.loanCategory;
+    if (!lCat && t.loanId) {
+      const found = loans.find(l => l.id === t.loanId);
+      if (found) lCat = found.loanCategory;
+    }
+    if (!lCat) lCat = 'expense'; // 기본값
 
-  // 3. 화면 업데이트
+    if (t.subcat === '원금상환' || t.subcat === '대출원금상환') {
+      if (lCat === 'investment') invPrin += t.amount;
+      else expPrin += t.amount;
+    } else if (t.subcat === '이자상환') {
+      if (lCat === 'investment') invInt += t.amount;
+      else expInt += t.amount;
+    }
+  });
+
+  // 3. 진짜 잔액 계산 (수입 - 순수지출 - 순수투자 - 대출상환 4종 모두 빼기)
+  const bal = inc - pureExp - pureInv - invPrin - invInt - expPrin - expInt;
+
+  // 4. 화면 업데이트
   if(document.getElementById('s-income')) document.getElementById('s-income').textContent = fmt(inc);
-  if(document.getElementById('s-expense')) document.getElementById('s-expense').textContent = fmt(exp);
-  if(document.getElementById('s-invest')) document.getElementById('s-invest').textContent = fmt(inv);
-  if(document.getElementById('s-balance')) document.getElementById('s-balance').textContent = fmt(inc - exp);
+  if(document.getElementById('s-expense')) document.getElementById('s-expense').textContent = fmt(pureExp);
+  if(document.getElementById('s-invest')) document.getElementById('s-invest').textContent = fmt(pureInv);
+  
+  const balEl = document.getElementById('s-balance');
+  if(balEl) {
+    balEl.textContent = fmt(bal);
+    balEl.style.color = bal >= 0 ? 'var(--sage)' : 'var(--terra)';
+  }
 
-  if(document.getElementById('s-loan-principal')) document.getElementById('s-loan-principal').textContent = fmt(loanPrincipal);
-  if(document.getElementById('s-loan-interest')) document.getElementById('s-loan-interest').textContent = fmt(loanInterest);
+  if(document.getElementById('s-inv-prin')) document.getElementById('s-inv-prin').textContent = fmt(invPrin);
+  if(document.getElementById('s-inv-int')) document.getElementById('s-inv-int').textContent = fmt(invInt);
+  if(document.getElementById('s-exp-prin')) document.getElementById('s-exp-prin').textContent = fmt(expPrin);
+  if(document.getElementById('s-exp-int')) document.getElementById('s-exp-int').textContent = fmt(expInt);
+
+  const totalDebt = loans.reduce((s, l) => s + (Number(l.balance) || 0), 0);
   if(document.getElementById('s-loan-total')) document.getElementById('s-loan-total').textContent = fmt(totalDebt);
 }
+
 
 function checkBudgetAlerts(expTxs) {
   const overCount = getBudgetCats().filter(bc => {
@@ -1981,7 +2019,8 @@ function addManual() {
         amount: principal,
         ts: now,
         loanId: loanId,
-        isLoan: true
+        isLoan: true,
+        loanCategory: loanObj.loanCategory
       });
 
       // 실제 대출 잔액 차감
@@ -2000,7 +2039,8 @@ function addManual() {
         amount: interest,
         ts: now + 1,
         loanId: loanId,
-        isLoan: true
+        isLoan: true,
+        loanCategory: loanObj.loanCategory
       });
     }
 
