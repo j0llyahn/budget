@@ -4333,44 +4333,41 @@ function connectFirebase() {
 
 // ─── Firebase 업로드 (debounced) ───────────────────────────
 function uploadToFirebase() {
-  if (!fbHouseRef || typeof firebase === 'undefined') return;
+  if (!fbHouseRef || typeof firebase === 'undefined') return Promise.resolve();
+  
+  // 대기 중인 다른 업로드가 있다면 취소
   clearTimeout(syncDebounce);
-  syncDebounce = setTimeout(() => {
-    isSyncing = true;
-    showSyncBadge('🔄 저장 중...', 'yellow');
-    
-    const data = {
-      transactions: transactions.slice(0, 3000),
-      accounts,
-      plans,
-      planChecks,
-      budgetLimits,
-      activeBudgetKeys,
-      loans,
-      giftChildren,
-      favorites, // <--- 이 줄을 추가!
-      lastUpdated: Date.now()
-    };
-    
-    fbHouseRef.set(data)
-      .then(() => {
-        showSyncBadge('✓ 저장됨', 'green');
-        hideSyncBadge();
-        isSyncing = false;
-      })
-      .catch(e => {
-        showSyncBadge('⚠ 저장 실패', 'red');
-        console.error('업로드 실패:', e);
-        isSyncing = false;
-      });
-  }, 1500);
+
+  const data = {
+    transactions: transactions.slice(0, 3000),
+    accounts,
+    plans,
+    planChecks,
+    budgetLimits,
+    activeBudgetKeys,
+    loans,
+    giftChildren,
+    favorites, // 즐겨찾기 포함 확인 완료
+    lastUpdated: Date.now()
+  };
+  
+  // ⭐ .set()의 결과를 return 하여 완료 시점을 알 수 있게 합니다.
+  return fbHouseRef.set(data)
+    .then(() => {
+      showSyncBadge('✓ 서버 저장됨', 'green');
+      hideSyncBadge();
+    })
+    .catch(e => {
+      showSyncBadge('⚠ 저장 실패', 'red');
+      console.error('업로드 실패:', e);
+      throw e; 
+    });
 }
 
 // ─── saveData override ─────────────────────────────────────
 function saveData() {
   console.log("데이터 저장 중...");
   
-  // 변수가 초기화되었는지 확인 후 저장
   if (typeof transactions !== 'undefined') localStorage.setItem('txs', JSON.stringify(transactions));
   if (typeof accounts !== 'undefined') localStorage.setItem('accounts', JSON.stringify(accounts));
   if (typeof plans !== 'undefined') localStorage.setItem('plans', JSON.stringify(plans));
@@ -4379,55 +4376,53 @@ function saveData() {
   if (typeof loans !== 'undefined') localStorage.setItem('loans', JSON.stringify(loans));
   if (typeof giftChildren !== 'undefined') localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
 
-  uploadToFirebase();
+  // ⭐ 서버 업로드 함수를 실행하고 그 결과를 반환합니다.
+  return uploadToFirebase();
 }
 // 3. 기존 내역 삭제 함수 (덮어쓰기)
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
 
-  // 1. 동기화 잠금 (삭제 중 서버 데이터가 덮어쓰지 못하게 방지)
+  // 1. 즉시 동기화 잠금 (서버 데이터가 내 폰을 덮어쓰지 못하게 함)
   isSyncing = true; 
 
-  // 2. 삭제할 내역 찾기
   const txToDelete = transactions.find(t => t.id === id);
   if (!txToDelete) {
     isSyncing = false;
     return;
   }
 
-  // 3. 대출 원금 복구 로직 (원금 상환 내역일 경우에만 실행)
+  // 2. 대출 원금 복구 로직
   if (txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
     const loanObj = loans.find(l => l.id === txToDelete.loanId);
     if (loanObj) {
       loanObj.balance += txToDelete.amount;
-      saveLoans(); // 대출 잔액 변경사항 저장 및 Firebase 업로드
+      saveLoans(); 
     }
   }
 
-  // 4. 가계부 내역 배열에서 삭제
+  // 3. 로컬 배열에서 삭제
   transactions = transactions.filter(t => t.id !== id);
 
-  // 5. 데이터 저장 (LocalStorage 저장 및 Firebase 업로드)
-  saveData(); 
+  // 4. ⭐ 서버 업로드가 완료될 때까지 기다립니다.
+  saveData().then(() => {
+    // 5. 서버 저장이 성공한 후에만 화면을 갱신하고 잠금을 풉니다.
+    renderSummary(); 
+    renderRecent(); 
+    if (typeof renderRecords === 'function') renderRecords();
+    if (typeof renderLoanPage === 'function') renderLoanPage();
+    if (txToDelete.loanId && typeof renderLoanHistory === 'function') {
+      renderLoanHistory(txToDelete.loanId);
+    }
 
-  // 6. 모든 화면 즉시 갱신
-  renderSummary(); // 상단 요약 카드
-  renderRecent();  // 홈 화면 최근 내역
-  
-  if (typeof renderRecords === 'function') renderRecords(); // 내역 페이지
-  if (typeof renderLoanPage === 'function') renderLoanPage(); // 대출 관리 페이지
-  
-  // 대출 상세 팝업이 열려있다면 히스토리도 즉시 갱신
-  if (txToDelete.loanId && typeof renderLoanHistory === 'function') {
-    renderLoanHistory(txToDelete.loanId);
-  }
-
-  showToast('✓ 삭제되었습니다.');
-  
-  // 7. 서버에 데이터가 반영될 시간을 준 뒤(1.5초), 동기화 잠금 해제
-  setTimeout(() => { 
-    isSyncing = false; 
-  }, 1500);
+    showToast('✓ 삭제되었습니다.');
+    
+    // 6. 안전하게 0.5초 뒤에 동기화 재개
+    setTimeout(() => { isSyncing = false; }, 500);
+  }).catch(() => {
+    alert("서버 저장에 실패했습니다. 다시 시도해주세요.");
+    isSyncing = false;
+  });
 }
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
