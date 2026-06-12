@@ -3770,81 +3770,87 @@ function renderLoanPage() {
 
   if (!listEl || !summaryEl) return;
 
-  // 1. 대출 데이터가 없을 경우 처리
   if (!loans || loans.length === 0) {
     listEl.innerHTML = '<div class="empty"><div class="e">🏦</div>대출을 추가해주세요</div>';
     summaryEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:8px">등록된 대출이 없습니다.</div>';
     return;
   }
 
-  // 2. 전체 요약 데이터 계산
-  const totalPrincipal = loans.reduce((s, l) => s + (Number(l.principal) || 0), 0);
-  const totalBalance = loans.reduce((s, l) => s + (Number(l.balance) || 0), 0);
-  const totalRepaid = totalPrincipal - totalBalance;
-  const totalPct = totalPrincipal > 0 ? (totalRepaid / totalPrincipal * 100) : 0;
-  const monthlyTotal = loans.reduce((s, l) => s + (Number(l.monthly) || 0), 0);
+  // --- 1. 데이터 계산 함수 (공통 로직) ---
+  const calcStats = (loanList) => {
+    const principal = loanList.reduce((s, l) => s + (Number(l.principal) || 0), 0);
+    const balance = loanList.reduce((s, l) => s + (Number(l.balance) || 0), 0);
+    const repaid = principal - balance;
+    
+    // 가중 평균 금리 계산 (잔액 기준)
+    const weightedSum = loanList.reduce((s, l) => s + ((Number(l.balance) || 0) * (Number(l.rate) || 0)), 0);
+    const avgRate = balance > 0 ? (weightedSum / balance).toFixed(2) : 0;
+    
+    return { principal, balance, repaid, avgRate };
+  };
 
-  // 3. 상단 요약 카드 렌더링
+  // --- 2. 그룹별 데이터 추출 ---
+  const totalStats = calcStats(loans);
+  const invStats = calcStats(loans.filter(l => l.loanCategory === 'investment'));
+  const expStats = calcStats(loans.filter(l => l.loanCategory === 'expense'));
+
+  // --- 3. UI 템플릿 함수 (동일한 디자인 적용) ---
+  const createSummaryBlock = (title, stats, titleColor) => {
+    return `
+      <div style="margin-bottom: 24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding: 0 4px;">
+          <span style="font-weight:700; font-size:0.95rem; color:${titleColor};">${title}</span>
+          <span style="font-size:0.8rem; color:var(--red); font-weight:700;">평균이율 ${stats.avgRate}%</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div style="background:var(--bg); padding:14px 8px; border-radius:12px; text-align:center; border-top: 3px solid var(--terra);">
+            <div style="font-size:10px; color:var(--muted); margin-bottom:4px;">총 잔여대출</div>
+            <div style="font-size:1rem; font-weight:700;">${fmt(stats.balance)}</div>
+          </div>
+          <div style="background:var(--bg); padding:14px 8px; border-radius:12px; text-align:center; border-top: 3px solid var(--sage);">
+            <div style="font-size:10px; color:var(--muted); margin-bottom:4px;">총 상환완료</div>
+            <div style="font-size:1rem; font-weight:700; color:var(--sage);">${fmt(stats.repaid)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // --- 4. 상단 요약 영역 합치기 ---
   summaryEl.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div style="background:var(--terra-light);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:11px;color:var(--terra);font-weight:700;margin-bottom:4px">총 잔여 대출</div>
-        <div style="font-size:1rem;font-weight:700;color:var(--terra)">${fmt(totalBalance)}</div>
-      </div>
-      <div style="background:var(--sage-light);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:11px;color:var(--sage);font-weight:700;margin-bottom:4px">총 상환 완료</div>
-        <div style="font-size:1rem;font-weight:700;color:var(--sage)">${fmt(totalRepaid)}</div>
-      </div>
-    </div>
-    <div style="font-size:0.82rem;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between">
-      <span>전체 상환률</span>
-      <span style="font-weight:700;color:var(--sage)">${totalPct.toFixed(1)}%</span>
-    </div>
-    <div class="loan-progress-wrap">
-      <div class="loan-progress" style="width:${Math.min(totalPct, 100)}%"></div>
-    </div>
-    ${monthlyTotal > 0 ? `<div style="font-size:0.82rem;color:var(--muted);text-align:right;margin-top:4px">월 총 상환액 ${fmt(monthlyTotal)}</div>` : ''}
+    ${createSummaryBlock('📊 대출 전체 현황', totalStats, 'var(--text)')}
+    ${createSummaryBlock('📈 투자용 대출 현황', invStats, 'var(--invest)')}
+    ${createSummaryBlock('💸 비용용 대출 현황', expStats, 'var(--terra)')}
   `;
 
-  // 4. 개별 대출 카드 목록 렌더링
+  // --- 5. 하단 개별 대출 리스트 렌더링 ---
   listEl.innerHTML = loans.map(loan => {
     const repaid = (Number(loan.principal) || 0) - (Number(loan.balance) || 0);
     const pct = loan.principal > 0 ? Math.max(0, Math.min(100, (repaid / loan.principal) * 100)) : 0;
-    const isDanger = pct < 20; // 상환율 20% 미만일 때 강조
-
-    // ⭐ 투자용/비용용 배지 설정
     const isInv = loan.loanCategory === 'investment';
     const catBadge = isInv ? 
-      `<span style="color:var(--invest); border:1.5px solid var(--invest); font-size:10px; padding:1px 5px; border-radius:4px; margin-right:8px; font-weight:bold; background:white;">투자용</span>` :
-      `<span style="color:var(--terra); border:1.5px solid var(--terra); font-size:10px; padding:1px 5px; border-radius:4px; margin-right:8px; font-weight:bold; background:white;">비용용</span>`;
+      `<span style="color:var(--invest); border:1.5px solid var(--invest); font-size:10px; padding:1px 5px; border-radius:4px; margin-right:8px; font-weight:bold;">투자용</span>` :
+      `<span style="color:var(--terra); border:1.5px solid var(--terra); font-size:10px; padding:1px 5px; border-radius:4px; margin-right:8px; font-weight:bold;">비용용</span>`;
 
     return `
-      <div class="loan-card" onclick="openLoanModal('${loan.id}')" style="cursor:pointer; margin-bottom:12px;">
-        <div class="loan-card-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start;">
+      <div class="loan-card" onclick="openLoanModal('${loan.id}')" style="margin-bottom:12px; cursor:pointer;">
+        <div class="loan-card-header" style="padding:14px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div style="font-weight:700; font-size:0.95rem; display:flex; align-items:center;">
-              ${catBadge} ${loan.name}
-            </div>
-            <div style="font-size:11px; color:var(--muted); margin-top:4px">
-              ${loan.rate ? loan.rate + '% ' : ''}${RATE_TYPE_LABEL[loan.rateType] || ''} · ${REPAY_TYPE_LABEL[loan.repayType] || ''}
-            </div>
+            <div style="font-weight:700; font-size:0.9rem; display:flex; align-items:center;">${catBadge} ${loan.name}</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:4px;">이율 ${loan.rate}% · ${REPAY_TYPE_LABEL[loan.repayType] || ''}</div>
           </div>
-          <div style="text-align:right">
-            <div style="font-weight:700; font-size:1rem; color:var(--terra)">${fmt(loan.balance)}</div>
-            <div style="font-size:11px; color:var(--muted)">잔액</div>
+          <div style="text-align:right;">
+            <div style="font-weight:700; font-size:1rem; color:var(--terra);">${fmt(loan.balance)}</div>
+            <div style="font-size:10px; color:var(--muted);">잔액</div>
           </div>
         </div>
-        <div class="loan-card-body" style="padding: 12px 16px;">
-          <div style="display:flex; justify-content:space-between; font-size:0.82rem; color:var(--muted); margin-bottom:6px">
-            <span>상환 진행률</span>
-            <span style="font-weight:700; color:${isDanger ? 'var(--terra)' : 'var(--sage)'}">${pct.toFixed(1)}%</span>
-          </div>
+        <div class="loan-card-body" style="padding:12px 16px;">
           <div class="loan-progress-wrap" style="height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
-            <div class="loan-progress${isDanger ? ' danger' : ''}" style="width:${pct}%; height:100%; background:${isDanger ? 'var(--terra)' : 'var(--sage)'}; transition: width 0.6s ease;"></div>
+            <div class="loan-progress" style="width:${pct}%; height:100%; background:${isInv ? 'var(--invest)' : 'var(--terra)'}; transition: width 0.6s ease;"></div>
           </div>
-          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:6px">
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:6px;">
+            <span>상환율 ${pct.toFixed(1)}%</span>
             <span>초기 ${fmt(loan.principal)}</span>
-            <span>상환 ${fmt(repaid)}</span>
           </div>
         </div>
       </div>`;
@@ -4120,43 +4126,48 @@ function startApp() {
   document.querySelector('.bottom-nav').style.display = '';
   document.getElementById('page-home').style.display = '';
 
-  // 1. 입력창을 가장 먼저 그립니다 (f-cat, f-date 등이 이때 생성됨)
+  // 1. 입력창 먼저 그리기
   renderInputForm(); 
+
+  // 2. 로컬 데이터(localStorage)를 믿지 않고 빈 배열로 초기화하여 서버 데이터를 기다림
+  transactions = [];
+  accounts = [];
+  loans = [];
+  // ... 나머지 변수들도 초기화
 
   if (typeof firebase !== 'undefined') {
     if (!db) initFirebase();
     if (db && shareCode) {
       fbHouseRef = db.ref('households/' + shareCode);
+      // 3. 서버와 연결 (여기서 서버 데이터를 가져와 화면을 그립니다)
       connectFirebase();
     }
   }
-
-  // 2. 그 다음 데이터를 채웁니다
-  renderSummary();
-  renderRecent();
+  
   updateMonthLabel();
   initCommaInputs();
-  renderFavorites();
 }
 
 // ─── FIREBASE 연결 ─────────────────────────────────────────
-
-// ─── FIREBASE 실시간 연결 및 동기화 ───────────────────────────
+// ─── FIREBASE 실시간 연결 및 서버 중심 동기화 ───────────────────────────
 function connectFirebase() {
   if (!fbHouseRef) return;
 
-  showSyncBadge('🔄 연결 중...', 'yellow');
+  showSyncBadge('🔄 서버 데이터 불러오는 중...', 'yellow');
+
+  // 기존에 연결된 감시자가 있다면 제거 (중복 방지)
+  fbHouseRef.off();
 
   // Firebase 서버의 데이터가 변경될 때마다 실행됨
   fbHouseRef.on('value', (snapshot) => {
-    // 내가 데이터를 업로드 중일 때는 서버 데이터를 받지 않음 (무한 루프 방지)
+    // 내가 데이터를 업로드 중(isSyncing === true)일 때는 서버 데이터를 받지 않음 (무한 루프 방지)
     if (isSyncing) return; 
 
     const data = snapshot.val();
     
-    // [중요] 좀비 데이터 박멸 로직: 서버에 데이터가 아예 없으면 내 폰 데이터도 비움
+    // [중요] 서버 데이터가 아예 없는 경우 (초기화 상태)
     if (!data) {
-      console.log("서버 데이터가 삭제됨. 로컬 데이터를 초기화합니다.");
+      console.log("서버가 비어있습니다. 모든 로컬 데이터를 초기화합니다.");
       transactions = [];
       accounts = [];
       evaluations = {};
@@ -4167,90 +4178,60 @@ function connectFirebase() {
       loans = [];
       giftChildren = [];
       favorites = [];
-      
-      // 로컬 저장소(LocalStorage)도 즉시 비움
-      localStorage.setItem('txs', JSON.stringify(transactions));
-      localStorage.setItem('accounts', JSON.stringify(accounts));
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      // ... 필요한 다른 항목들도 저장
-      
-      renderSummary();
-      renderRecent();
-      if (typeof renderRecords === 'function') renderRecords();
-      if (typeof renderFavorites === 'function') renderFavorites();
-      if (typeof renderLoanPage === 'function') renderLoanPage();
-      
-      showSyncBadge('✨ 초기화됨', 'green');
-      hideSyncBadge();
-      return;
-    }
-    
-    // 서버에 데이터가 있다면 내 휴대폰의 변수들에 덮어씌움
-    let changed = false;
-
-    if (data.transactions) {
-      transactions = data.transactions;
-      localStorage.setItem('txs', JSON.stringify(transactions));
-      changed = true;
-    }
-    if (data.accounts) {
-      accounts = data.accounts;
-      localStorage.setItem('accounts', JSON.stringify(accounts));
-      changed = true;
-    }
-    if (data.favorites) {
-      favorites = data.favorites;
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      changed = true;
-    }
-    if (data.loans) {
-      loans = data.loans;
-      localStorage.setItem('loans', JSON.stringify(loans));
-      changed = true;
-    }
-    if (data.plans) {
-      plans = data.plans;
-      localStorage.setItem('plans', JSON.stringify(plans));
-      changed = true;
-    }
-    if (data.budgetLimits) {
-      budgetLimits = data.budgetLimits;
-      localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
-    }
-    if (data.activeBudgetKeys) {
-      activeBudgetKeys = data.activeBudgetKeys;
-    }
-    if (data.giftChildren) {
-      giftChildren = data.giftChildren;
-      localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
-    }
-
-    // 데이터가 변경되었다면 화면을 다시 그림
-    if (changed) {
-      renderSummary();
-      renderRecent();
-      if (typeof renderRecords === 'function') renderRecords();
-      if (typeof renderFavorites === 'function') renderFavorites();
-      if (typeof renderLoanPage === 'function') renderLoanPage();
-      
-      showSyncBadge('✓ 동기화됨', 'green');
-      hideSyncBadge();
     } else {
-      showSyncBadge('✓ 연결됨', 'green');
-      hideSyncBadge();
+      // ⭐ 서버에 데이터가 있는 경우: 로컬 데이터를 무시하고 서버 데이터로 강제 덮어쓰기
+      console.log("서버 데이터를 수신하여 로컬 데이터를 동기화합니다.");
+      
+      transactions = data.transactions || [];
+      accounts = data.accounts || [];
+      evaluations = data.evaluations || {};
+      plans = data.plans || [];
+      planChecks = data.planChecks || {};
+      budgetLimits = data.budgetLimits || {};
+      activeBudgetKeys = data.activeBudgetKeys || ["식비", "문화생활", "품위유지"];
+      loans = data.loans || [];
+      giftChildren = data.giftChildren || [];
+      favorites = data.favorites || [];
     }
+
+    // 1. 로컬 저장소(LocalStorage) 업데이트 (임시 보관용)
+    localStorage.setItem('txs', JSON.stringify(transactions));
+    localStorage.setItem('accounts', JSON.stringify(accounts));
+    localStorage.setItem('evaluations', JSON.stringify(evaluations));
+    localStorage.setItem('plans', JSON.stringify(plans));
+    localStorage.setItem('planChecks', JSON.stringify(planChecks));
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+    localStorage.setItem('loans', JSON.stringify(loans));
+    localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
+    localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
+    localStorage.setItem('activeBudgetKeys', JSON.stringify(activeBudgetKeys));
+
+    // 2. ⭐ 서버 데이터를 기준으로 모든 화면을 즉시 다시 그림
+    renderSummary();
+    renderRecent();
+    if (typeof renderRecords === 'function') renderRecords();
+    if (typeof renderFavorites === 'function') renderFavorites();
+    if (typeof renderLoanPage === 'function') renderLoanPage();
+    if (typeof renderBudgetPage === 'function') renderBudgetPage();
+    if (typeof renderBudgetStatus === 'function') renderBudgetStatus();
+    if (typeof renderPlanPage === 'function') renderPlanPage();
+    if (typeof renderGiftPage === 'function') renderGiftPage();
+    
+    showSyncBadge('✅ 실시간 동기화 완료', 'green');
+    hideSyncBadge();
+    
   }, (error) => {
-    showSyncBadge('⚠ 연결 오류', 'red');
+    showSyncBadge('⚠ 서버 연결 오류', 'red');
     console.error('Firebase 수신 오류:', error);
   });
 
-  // 온라인/오프라인 상태 감지
+  // 온라인/오프라인 상태 실시간 감지
   db.ref('.info/connected').on('value', (snap) => {
     if (snap.val() === true) {
-      showSyncBadge('✓ 실시간 연결', 'green');
+      showSyncBadge('✓ 실시간 연결됨', 'green');
       hideSyncBadge();
     } else {
-      showSyncBadge('⚠ 오프라인', 'red');
+      showSyncBadge('⚠ 오프라인 상태', 'red');
     }
   });
 }
@@ -4292,27 +4273,43 @@ function uploadToFirebase() {
 
 // ─── saveData override ─────────────────────────────────────
 function saveData() {
+  // 1. 내 폰 로컬 저장소에 임시 저장
   localStorage.setItem('txs', JSON.stringify(transactions));
   localStorage.setItem('accounts', JSON.stringify(accounts));
   localStorage.setItem('evaluations', JSON.stringify(evaluations));
   localStorage.setItem('plans', JSON.stringify(plans));
   localStorage.setItem('planChecks', JSON.stringify(planChecks));
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+  localStorage.setItem('loans', JSON.stringify(loans));
+  localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
+
+  // 2. ⭐ 즉시 서버로 전송 (남편 폰에 바로 뜨게 함)
   uploadToFirebase();
 }
-
 
 // 3. 기존 내역 삭제 함수 (덮어쓰기)
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
 
-  // 1. 동기화 차단 시작 (서버 데이터가 내 폰을 덮어쓰지 못하게 함)
+  // 서버 데이터를 새로 받지 않도록 잠금
   isSyncing = true; 
 
+  // 1. 내 폰의 리스트에서 먼저 지움 (사용자에게 빠른 반응을 주기 위함)
   const txToDelete = transactions.find(t => t.id === id);
-  if (!txToDelete) {
-    isSyncing = false;
-    return;
+  if (txToDelete && txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
+    const loanObj = loans.find(l => l.id === txToDelete.loanId);
+    if (loanObj) loanObj.balance += txToDelete.amount;
   }
+  transactions = transactions.filter(t => t.id !== id);
+
+  // 2. ⭐ 수정된 전체 리스트를 서버에 덮어씌움 (이게 진짜 삭제 과정)
+  saveData(); 
+
+  showToast('✓ 서버에서 삭제되었습니다.');
+  
+  // 3. 서버 전송 완료 후 잠금 해제
+  setTimeout(() => { isSyncing = false; }, 1000);
+}
 
   // 2. 대출 원금 복구 로직 (대출 상환 내역일 경우)
   if (txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
