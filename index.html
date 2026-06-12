@@ -2172,6 +2172,9 @@ function renderRecords() {
   } else if (txFilter === 'expense') {
     // 지출 탭에서는 대출 관련 내역(isLoan)을 모두 제외
     txs = txs.filter(t => t.type === 'expense' && !t.isLoan);
+  } else if (txFilter === 'invest') {
+    // ⭐ 투자 탭에서도 대출 관련 내역(isLoan)을 모두 제외
+    txs = txs.filter(t => t.type === 'invest' && !t.isLoan);
   } else if (txFilter !== 'all') {
     txs = txs.filter(t => t.type === txFilter);
   }
