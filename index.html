@@ -2202,16 +2202,21 @@ function renderRecords() {
   // 5. 정렬 (최신순)
   txs = txs.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
 
-  // 6. 합계 계산 로직 수정
-  let sumIncome = 0, sumExpense = 0, sumInvest = 0, sumLoanTotal = 0;
+   let sumIncome = 0, sumExpense = 0, sumInvest = 0, sumLoan = 0;
   txs.forEach(t => {
     const amt = Number(t.amount) || 0;
-    if (t.type === 'income') sumIncome += amt;
-    if (t.type === 'expense') sumExpense += amt;
-    if (t.type === 'invest') sumInvest += amt;
-    
-    // ⭐ 현재 필터링된 리스트의 전체 합계 (대출 탭일 때 사용)
-    sumLoanTotal += amt;
+    if (t.type === 'income') {
+      sumIncome += amt;
+    } else if (t.isLoan) {
+      // 대출 꼬리표가 있으면 무조건 대출 합계로
+      sumLoan += amt;
+    } else if (t.type === 'expense') {
+      // 대출이 아닌 순수 지출
+      sumExpense += amt;
+    } else if (t.type === 'invest') {
+      // 대출이 아닌 순수 투자
+      sumInvest += amt;
+    }
   });
 
   if (summaryEl) {
@@ -2220,16 +2225,16 @@ function renderRecords() {
         <div style="padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px; text-align: right; font-weight: bold; font-size: 13px; line-height: 1.6;">
           <span style="color: #2196F3;">수입: ${fmt(sumIncome)}</span><br>
           <span style="color: #F44336;">지출: ${fmt(sumExpense)}</span><br>
-          <span style="color: #4CAF50;">투자: ${fmt(sumInvest)}</span>
+          <span style="color: #4CAF50;">투자: ${fmt(sumInvest)}</span><br>
+          <span style="color: var(--terra);">대출: ${fmt(sumLoan)}</span>
         </div>`;
     } else {
-      const colors = { income: '#2196F3', expense: '#F44336', invest: '#4CAF50', loan: '#c47c5a' };
-      // ⭐ 탭에 따라 보여줄 합계 금액 선택
+      const colors = { income: '#2196F3', expense: '#F44336', invest: '#4CAF50', loan: 'var(--terra)' };
       let displaySum = 0;
       if (txFilter === 'income') displaySum = sumIncome;
       else if (txFilter === 'expense') displaySum = sumExpense;
       else if (txFilter === 'invest') displaySum = sumInvest;
-      else if (txFilter === 'loan') displaySum = sumLoanTotal;
+      else if (txFilter === 'loan') displaySum = sumLoan;
 
       summaryEl.innerHTML = `
         <div style="padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px; text-align: right; font-weight: bold; color: ${colors[txFilter]};">
@@ -2237,6 +2242,7 @@ function renderRecords() {
         </div>`;
     }
   }
+
 
   // 7. 리스트 렌더링
   if (txs.length === 0) {
