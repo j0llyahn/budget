@@ -4152,7 +4152,6 @@ function connectFirebase() {
     const data = snapshot.val();
     if (!data) {
       // 빈 DB면 내 데이터를 올림
-      uploadToFirebase();
       return;
     }
     
