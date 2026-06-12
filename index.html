@@ -1371,6 +1371,7 @@ let selectedAccount = null;
 let charts = {};
 
 // Load from localStorage
+let transactions = JSON.parse(localStorage.getItem('txs') || 'null');
 if (!transactions) {
   // Load imported data as initial seed
   transactions = IMPORTED_DATA.map((r, i) => ({
@@ -1387,7 +1388,7 @@ if (!transactions) {
   }));
   localStorage.setItem('txs', JSON.stringify(transactions));
 }
-let transactions = JSON.parse(localStorage.getItem('txs') || '[]');
+
 let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
 let evaluations = JSON.parse(localStorage.getItem('evaluations') || '{}');
 let loans = JSON.parse(localStorage.getItem('loans') || '[]');
