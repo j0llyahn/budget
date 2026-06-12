@@ -1192,15 +1192,15 @@ body { font-family: "Noto Sans KR", sans-serif; background: var(--bg); color: va
   </button>
 </nav>
 
-<div id="more-menu" style="display:none; position:fixed; bottom:68px; left:50%; transform:translateX(-50%); width:calc(100% - 24px); max-width:400px; background:white; border:1px solid var(--border); border-radius:16px; z-index:190; padding:12px 16px; box-shadow:0 -4px 24px rgba(0,0,0,0.13)">
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-    <button onclick="showPage('budget');closeMore()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">🎯 예산</button>
-    <button onclick="showPage('stats');closeMore()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">📊 통계</button>
-    <button onclick="showPage('annual');closeMore()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">📅 연간요약</button>
-    <button onclick="showPage('plan');closeMore()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">🗓️ 재무계획</button>
-    <button onclick="showPage('calc');closeMore()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">🔮 자산예측</button>
-    <button onclick="showPage('gift');closeMore();renderGiftPage()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500">🎁 자녀 증여</button>
-    <button onclick="showPage('settings');closeMore();updateStorageInfo()" style="padding:14px; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; font-family:inherit; font-size:0.9rem; cursor:pointer; font-weight:500; grid-column: 1 / -1;">⚙️ 설정</button>
+<div id="more-menu" style="display:none;position:fixed;bottom:68px;left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:400px;background:white;border:1px solid var(--border);border-radius:16px;z-index:190;padding:12px 16px;box-shadow:0 -4px 24px rgba(0,0,0,0.13)">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <button onclick="showPage('invest');closeMore()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">📈 투자</button>
+    <button onclick="showPage('annual');closeMore()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">📅 연간요약</button>
+    <button onclick="showPage('plan');closeMore()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">🗓️ 재무계획</button>
+    <button onclick="showPage('calc');closeMore()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">🔮 자산예측</button>
+    <button onclick="showPage('loan');closeMore()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">🏦 대출관리</button>
+    <button onclick="showPage('gift');closeMore();renderGiftPage()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">🎁 자녀 증여</button>
+    <button onclick="showPage('settings');closeMore();updateStorageInfo()" style="padding:14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;font-family:inherit;font-size:0.9rem;cursor:pointer;font-weight:500">⚙️ 설정</button>
   </div>
 </div>
 
@@ -1908,64 +1908,69 @@ function updateDetailCat() {
 }
 
 function addManual() {
-  const date = document.getElementById('f-date').value;
-  const title = document.getElementById('f-title').value;
-  const now = Date.now();
+  const dateEl = document.getElementById('f-date');
+  const date = dateEl ? dateEl.value : "";
+  
+  // 1. 날짜 체크
+  if (!date) {
+    showToast('날짜를 선택해주세요! 📅');
+    return;
+  }
 
   if (currentType === 'loan') {
+    // [대출 상환 로직]
     const loanId = document.getElementById('f-loan-id').value;
-    const loanObj = loans.find(l => l.id === loanId);
     const principal = parseComma(document.getElementById('f-amount-principal').value);
     const interest = parseComma(document.getElementById('f-amount-interest').value);
+    const loanObj = loans.find(l => l.id === loanId);
+    const title = document.getElementById('f-title').value;
 
-    if (!loanId) { showToast('대출을 선택해주세요.'); return; }
-    if (principal === 0 && interest === 0) { showToast('금액을 입력해주세요.'); return; }
-
-    // 1. 원금 상환 저장
     if (principal > 0) {
-      const pType = loanObj.loanCategory === 'investment' ? 'invest' : 'expense';
-      const pCat = loanObj.loanCategory === 'investment' ? '대출상환' : '금융비용';
-      
       transactions.unshift({
-        id: 'tx_p_' + now,
-        date: date,
-        type: pType,
-        cat: pCat,
-        subcat: '원금상환', // ⭐ 이 이름이 renderLoanHistory와 같아야 함
-        title: loanObj.name + ' 원금상환',
-        amount: principal,
-        ts: now,
-        loanId: loanId, // ⭐ 이 ID가 있어야 히스토리에 나타남
-        isLoan: true
+        id: 'tx_p_' + Date.now(), date, type: 'invest', cat: '대출상환',
+        subcat: '원금상환', title: title || loanObj.name + ' 원금상환',
+        amount: principal, ts: Date.now(), loanId: loanId, isLoan: true
       });
       loanObj.balance = Math.max(0, loanObj.balance - principal);
     }
-
-    // 2. 이자 상환 저장
     if (interest > 0) {
       transactions.unshift({
-        id: 'tx_i_' + (now + 1),
-        date: date,
-        type: 'expense',
-        cat: '금융비용',
-        subcat: '이자상환', // ⭐ 이 이름이 renderLoanHistory와 같아야 함
-        title: loanObj.name + ' 이자납부',
-        amount: interest,
-        ts: now + 1,
-        loanId: loanId, // ⭐ 이 ID가 있어야 히스토리에 나타남
-        isLoan: true
+        id: 'tx_i_' + (Date.now() + 1), date, type: 'expense', cat: '금융비용',
+        subcat: '이자상환', title: title || loanObj.name + ' 이자납부',
+        amount: interest, ts: Date.now() + 1, loanId: loanId, isLoan: true
       });
     }
     saveLoans();
   } else {
-    // ... 일반 내역 저장 로직 (기존과 동일) ...
+    // [일반 입력 로직: 수입/지출/투자] ⭐ 이 부분이 수입 저장 담당입니다.
+    const amountEl = document.getElementById('f-amount');
+    const catEl = document.getElementById('f-cat');
+    const detailEl = document.getElementById('f-detail');
+    const titleEl = document.getElementById('f-title');
+
+    const amount = parseComma(amountEl.value);
+    if (!amount) { showToast('금액을 입력해주세요'); return; }
+
+    const tx = {
+      id: 'tx_' + Date.now(),
+      ts: Date.now(),
+      date: date,
+      type: currentType, // 'income' (수입)
+      cat: catEl.value,
+      subcat: detailEl.value,
+      title: titleEl.value || detailEl.value,
+      amount: amount,
+      memo: ""
+    };
+    transactions.unshift(tx);
   }
 
+  // 3. 공통 저장 및 화면 갱신
   saveData();
   renderSummary();
   renderRecent();
   if (typeof renderRecords === 'function') renderRecords();
-  renderInputForm();
+  renderInputForm(); // 입력창 초기화
   showToast('✓ 저장되었습니다!');
 }
 
