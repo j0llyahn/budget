@@ -1519,30 +1519,25 @@ function monthTxs() {
 
 // ─── SUMMARY ─────────────────────────────────────────────
 function renderSummary() {
-  const txs = monthTxs(); // 이번 달 데이터만 필터링된 상태
-  
-  // 1. 기본 수입/지출/투자 합산
+  const txs = monthTxs();
+
+  // 1. 순수하게 '타입' 기준으로만 합산 (가장 정확함)
   const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  
-  // ⭐ 투자 합계: 일반 투자 + 대출 원금 상환액 모두 포함
   const inv = txs.filter(t => t.type === 'invest').reduce((s, t) => s + t.amount, 0);
-  
-  // 2. 대출 전용 통계 합산
-  // 카테고리가 '대출상환'인 것만 추출
-  const loanPrincipal = txs.filter(t => t.cat === '대출상환').reduce((s, t) => s + t.amount, 0);
-  // 카테고리가 '금융비용'인 것만 추출
-  const loanInterest = txs.filter(t => t.cat === '금융비용').reduce((s, t) => s + t.amount, 0);
-  // 모든 대출의 현재 잔액 합계
-  const totalDebt = loans.reduce((s, l) => s + l.balance, 0);
 
-  // 3. 화면에 뿌려주기 (ID가 있는 경우에만)
+  // 2. 대출 전용 대시보드 카드 계산
+  // 원금상환액: 투자용 원금상환 + 비용용 원금상환 모두 합쳐서 보여줌
+  const loanPrincipal = txs.filter(t => t.subcat === '원금상환' || t.subcat === '대출원금상환').reduce((s, t) => s + t.amount, 0);
+  const loanInterest = txs.filter(t => t.subcat === '이자상환').reduce((s, t) => s + t.amount, 0);
+  const totalDebt = loans.reduce((s, l) => s + (Number(l.balance) || 0), 0);
+
+  // 3. 화면 업데이트
   if(document.getElementById('s-income')) document.getElementById('s-income').textContent = fmt(inc);
   if(document.getElementById('s-expense')) document.getElementById('s-expense').textContent = fmt(exp);
   if(document.getElementById('s-invest')) document.getElementById('s-invest').textContent = fmt(inv);
   if(document.getElementById('s-balance')) document.getElementById('s-balance').textContent = fmt(inc - exp);
 
-  // 대출 관련 카드 업데이트
   if(document.getElementById('s-loan-principal')) document.getElementById('s-loan-principal').textContent = fmt(loanPrincipal);
   if(document.getElementById('s-loan-interest')) document.getElementById('s-loan-interest').textContent = fmt(loanInterest);
   if(document.getElementById('s-loan-total')) document.getElementById('s-loan-total').textContent = fmt(totalDebt);
@@ -1907,63 +1902,126 @@ function updateDetailCat() {
     detailSel.innerHTML = details.map(d => `<option value="${d}">${d}</option>`).join('');
 }
 
+/**
+ * 직접 입력 폼의 데이터를 저장하는 함수
+ * 대출 상환 시 원금(투자/비용 선택에 따라 분리)과 이자를 각각 저장합니다.
+ */
 function addManual() {
   const dateEl = document.getElementById('f-date');
   const date = dateEl ? dateEl.value : "";
-  
-  // 1. 날짜 체크
+  const title = document.getElementById('f-title').value;
+  const now = Date.now();
+
+  // 1. 날짜 필수 입력 체크
   if (!date) {
     showToast('날짜를 선택해주세요! 📅');
     return;
   }
 
+  // 2. 대출 상환 모드일 때
   if (currentType === 'loan') {
-    // [대출 상환 로직]
     const loanId = document.getElementById('f-loan-id').value;
+    const loanObj = loans.find(l => l.id === loanId);
+    
+    if (!loanObj) {
+      showToast('상환할 대출을 선택해주세요.');
+      return;
+    }
+
     const principal = parseComma(document.getElementById('f-amount-principal').value);
     const interest = parseComma(document.getElementById('f-amount-interest').value);
-    const loanObj = loans.find(l => l.id === loanId);
-    const title = document.getElementById('f-title').value;
 
+    if (principal === 0 && interest === 0) {
+      showToast('상환 금액을 입력해주세요.');
+      return;
+    }
+
+    // --- 원금 상환 처리 ---
     if (principal > 0) {
+      let pType, pCat, pSubcat;
+
+      // 대출 성격(투자용/비용용)에 따라 가계부 분류 결정
+      if (loanObj.loanCategory === 'investment') {
+        pType = 'invest';       // 투자 탭으로 분류
+        pCat = '대출상환';      // CATEGORY_MAP의 invest 항목
+        pSubcat = '원금상환';
+      } else {
+        pType = 'expense';      // 지출 탭으로 분류
+        pCat = '금융비용';      // CATEGORY_MAP의 expense 항목
+        pSubcat = '대출원금상환';
+      }
+
       transactions.unshift({
-        id: 'tx_p_' + Date.now(), date, type: 'invest', cat: '대출상환',
-        subcat: '원금상환', title: title || loanObj.name + ' 원금상환',
-        amount: principal, ts: Date.now(), loanId: loanId, isLoan: true
+        id: 'tx_p_' + now,
+        date: date,
+        type: pType,
+        cat: pCat,
+        subcat: pSubcat,
+        title: title || loanObj.name + ' 원금상환',
+        amount: principal,
+        ts: now,
+        loanId: loanId,
+        isLoan: true
       });
+
+      // 실제 대출 잔액 차감
       loanObj.balance = Math.max(0, loanObj.balance - principal);
     }
+
+    // --- 이자 납부 처리 ---
     if (interest > 0) {
       transactions.unshift({
-        id: 'tx_i_' + (Date.now() + 1), date, type: 'expense', cat: '금융비용',
-        subcat: '이자상환', title: title || loanObj.name + ' 이자납부',
-        amount: interest, ts: Date.now() + 1, loanId: loanId, isLoan: true
+        id: 'tx_i_' + (now + 1),
+        date: date,
+        type: 'expense',
+        cat: '금융비용',
+        subcat: '이자상환',
+        title: title || loanObj.name + ' 이자납부',
+        amount: interest,
+        ts: now + 1,
+        loanId: loanId,
+        isLoan: true
       });
     }
-    saveLoans();
-  } else {
-    // [일반 입력 로직: 수입/지출/투자] ⭐ 이 부분이 수입 저장 담당입니다.
-    const amountEl = document.getElementById('f-amount');
-    const catEl = document.getElementById('f-cat');
-    const detailEl = document.getElementById('f-detail');
-    const titleEl = document.getElementById('f-title');
 
-    const amount = parseComma(amountEl.value);
-    if (!amount) { showToast('금액을 입력해주세요'); return; }
+    // 대출 잔액 변경사항 저장 (Firebase 업로드 포함)
+    saveLoans();
+
+  } else {
+    // 3. 일반 입력 모드 (수입/지출/투자)
+    const amount = parseComma(document.getElementById('f-amount').value);
+    if (!amount) {
+      showToast('금액을 입력해주세요.');
+      return;
+    }
 
     const tx = {
-      id: 'tx_' + Date.now(),
-      ts: Date.now(),
+      id: 'tx_' + now,
       date: date,
-      type: currentType, // 'income' (수입)
-      cat: catEl.value,
-      subcat: detailEl.value,
-      title: titleEl.value || detailEl.value,
+      type: currentType,
+      cat: document.getElementById('f-cat').value,
+      subcat: document.getElementById('f-detail').value,
+      title: title || document.getElementById('f-detail').value,
       amount: amount,
+      ts: now,
       memo: ""
     };
     transactions.unshift(tx);
   }
+
+  // 4. 공통 마무리 작업
+  saveData();       // 전체 내역 저장 및 Firebase 업로드
+  renderSummary();  // 홈 화면 요약 카드 갱신
+  renderRecent();   // 홈 화면 최근 내역 갱신
+  
+  // 내역 화면이 활성화 상태라면 내역 리스트도 갱신
+  if (typeof renderRecords === 'function') renderRecords();
+  
+  // 입력 폼 초기화
+  renderInputForm(); 
+  
+  showToast('✓ 저장되었습니다!');
+}
 
   // 3. 공통 저장 및 화면 갱신
   saveData();
@@ -3888,6 +3946,7 @@ function renderLoanPage() {
       </div>`;
   }).join('');
 }
+
 function openLoanModal(id) {
   const loan = loans.find(l => l.id === id);
   if (!loan) return;
