@@ -1213,8 +1213,7 @@ setTimeout(() => {
   updateCatOptions();
 }, 100);
 
-// 즐겨찾기 데이터 상태
-let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+
 
 // 즐겨찾기 목록 화면에 그리기
 function renderFavorites() {
@@ -1389,12 +1388,20 @@ if (!transactions) {
   }));
   localStorage.setItem('txs', JSON.stringify(transactions));
 }
-
+let transactions = JSON.parse(localStorage.getItem('txs') || '[]');
 let accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
 let evaluations = JSON.parse(localStorage.getItem('evaluations') || '{}');
 let loans = JSON.parse(localStorage.getItem('loans') || '[]');
 let plans = JSON.parse(localStorage.getItem('plans') || '[]');
 let planChecks = JSON.parse(localStorage.getItem('planChecks') || '{}');
+// 즐겨찾기 데이터 상태
+let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+let budgetLimits = JSON.parse(localStorage.getItem('budgetLimits') || '{}');
+// 활성화된 카테고리 키 목록 (기본 3개)
+let activeBudgetKeys = JSON.parse(localStorage.getItem('activeBudgetKeys') || '["식비","문화생활","품위유지"]');
+// ─── GIFT (자녀 증여) ──────────────────────────────────────
+let giftChildren = JSON.parse(localStorage.getItem('giftChildren') || '[]');
+let currentGiftChildId = null;
 
 // ─── NAV ─────────────────────────────────────────────────
 function showPage(name) {
@@ -2928,9 +2935,6 @@ const ALL_BUDGET_CATS = [
   { key: '기타비용', label: '💸 기타비용', match: ['기타비용', '기타'] },
 ];
 
-// 활성화된 카테고리 키 목록 (기본 3개)
-let activeBudgetKeys = JSON.parse(localStorage.getItem('activeBudgetKeys') || '["식비","문화생활","품위유지"]');
-
 // 현재 보여줄 카테고리만 필터
 function getBudgetCats() {
   return ALL_BUDGET_CATS.filter(bc => activeBudgetKeys.includes(bc.key));
@@ -2938,7 +2942,7 @@ function getBudgetCats() {
 // 하위 호환용 (기존 코드에서 BUDGET_CATS 참조하는 곳 대응)
 let BUDGET_CATS = getBudgetCats();
 
-let budgetLimits = JSON.parse(localStorage.getItem('budgetLimits') || '{}');
+
 
 function saveBudgetLimits() {
   localStorage.setItem('budgetLimits', JSON.stringify(budgetLimits));
@@ -3373,9 +3377,7 @@ window.closeMore = function () {
 
 
 
-// ─── GIFT (자녀 증여) ──────────────────────────────────────
-let giftChildren = JSON.parse(localStorage.getItem('giftChildren') || '[]');
-let currentGiftChildId = null;
+
 
 function saveGiftData() {
   localStorage.setItem('giftChildren', JSON.stringify(giftChildren));
@@ -4364,7 +4366,9 @@ function uploadToFirebase() {
 
 // ─── saveData override ─────────────────────────────────────
 function saveData() {
-  // 변수가 존재할 때만 저장하도록 체크
+  console.log("데이터 저장 중...");
+  
+  // 변수가 초기화되었는지 확인 후 저장
   if (typeof transactions !== 'undefined') localStorage.setItem('txs', JSON.stringify(transactions));
   if (typeof accounts !== 'undefined') localStorage.setItem('accounts', JSON.stringify(accounts));
   if (typeof plans !== 'undefined') localStorage.setItem('plans', JSON.stringify(plans));
