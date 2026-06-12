@@ -1444,27 +1444,29 @@ function onYearChange(y) {
 }
 
 function renderMonthBar() {
+  console.log("월 버튼 바를 그리는 중... 현재 월:", viewMonth);
   const bar = document.getElementById('month-bar');
-  if (!bar) return;
+  if (!bar) {
+    console.error("HTML에 'month-bar' 태그가 없습니다!");
+    return;
+  }
   
-  // '전체' 버튼 + 1~12월 버튼 생성
+  // '전체' 버튼 (-1) + 1~12월 버튼 생성
   let html = `<button class="month-btn ${viewMonth === -1 ? 'active' : ''}" onclick="selectMonth(${viewYear}, -1)">전체</button>`;
   
   for (let i = 0; i < 12; i++) {
-    // 현재 선택된 월(viewMonth)과 버튼의 인덱스(i)가 같으면 'active' 클래스 부여
     const isActive = (i === viewMonth) ? 'active' : '';
     html += `<button class="month-btn ${isActive}" onclick="selectMonth(${viewYear}, ${i})">${i + 1}월</button>`;
   }
   
   bar.innerHTML = html;
 
-  // 선택된 버튼이 잘 보이도록 스크롤 조절
+  // 현재 선택된 월 버튼이 화면 중앙에 오도록 스크롤
   setTimeout(() => {
     const activeBtn = bar.querySelector('.month-btn.active');
     if (activeBtn) activeBtn.scrollIntoView({inline:'center', behavior:'smooth', block:'nearest'});
   }, 50);
 }
-
 
 function selectMonth(y, m) {
   viewYear = y;
@@ -4126,25 +4128,24 @@ function startApp() {
   document.querySelector('.bottom-nav').style.display = '';
   document.getElementById('page-home').style.display = '';
 
-  // 1. 입력창 먼저 그리기
+    renderMonthBar(); 
   renderInputForm(); 
 
-  // 2. 로컬 데이터(localStorage)를 믿지 않고 빈 배열로 초기화하여 서버 데이터를 기다림
+  // 서버 데이터를 받기 전까지 빈 상태로 초기화
   transactions = [];
   accounts = [];
   loans = [];
-  // ... 나머지 변수들도 초기화
 
   if (typeof firebase !== 'undefined') {
     if (!db) initFirebase();
     if (db && shareCode) {
       fbHouseRef = db.ref('households/' + shareCode);
-      // 3. 서버와 연결 (여기서 서버 데이터를 가져와 화면을 그립니다)
       connectFirebase();
     }
   }
   
-  updateMonthLabel();
+  updateMonthLabel(); 
+  renderMonthBar(); 
   initCommaInputs();
 }
 
@@ -4209,6 +4210,7 @@ function connectFirebase() {
     // 2. ⭐ 서버 데이터를 기준으로 모든 화면을 즉시 다시 그림
     renderSummary();
     renderRecent();
+    renderMonthBar();
     if (typeof renderRecords === 'function') renderRecords();
     if (typeof renderFavorites === 'function') renderFavorites();
     if (typeof renderLoanPage === 'function') renderLoanPage();
@@ -4535,4 +4537,4 @@ function installPWA() {
 
 </script>
 </body>
-</html
+</html>
