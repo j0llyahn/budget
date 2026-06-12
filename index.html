@@ -1816,7 +1816,6 @@ function confirmParsed() {
     parsedTx.forEach(item => {
       const tx = { ...item, id: 'tx_' + Date.now() + Math.random(), ts: Date.now() };
       transactions.unshift(tx);
-      sendToGoogleSheet(tx); // 구글 시트 전송
     });
     if (parsedLoanUpdate) {
       const { loan, principalAmt } = parsedLoanUpdate;
@@ -1835,7 +1834,6 @@ function confirmParsed() {
   } else {
     const tx = { ...parsedTx, id: 'tx_' + Date.now(), ts: Date.now() };
     transactions.unshift(tx);
-    sendToGoogleSheet(tx); // 구글 시트 전송
     showToast('✓ 추가되었습니다!');
   }
 
@@ -4304,7 +4302,33 @@ function saveData() {
   // ⭐ 서버 업로드 함수를 실행하고 그 결과를 반환합니다.
   return uploadToFirebase();
 }
-// 3. 기존 내역 삭제 함수 (덮어쓰기)
+
+function uploadToFirebase() {
+  if (!fbHouseRef) return Promise.resolve();
+
+  const dataToSave = {
+    lastUpdated: Date.now(),
+    transactions: transactions || [],
+    accounts: accounts || [],
+    loans: loans || [],
+    favorites: favorites || [],
+    plans: plans || [],
+    planChecks: planChecks || {},
+    budgetLimits: budgetLimits || {},
+    activeBudgetKeys: activeBudgetKeys || ["식비", "문화생활", "품위유지"],
+    giftChildren: giftChildren || []
+  };
+
+  return fbHouseRef.set(dataToSave)
+    .then(() => {
+      console.log("Firebase 서버 동기화 완료");
+    })
+    .catch((error) => {
+      console.error("Firebase 동기화 실패:", error);
+      showToast("서버 저장에 실패했습니다.");
+    });
+}
+
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
 
