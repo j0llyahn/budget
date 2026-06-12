@@ -1371,7 +1371,6 @@ let selectedAccount = null;
 let charts = {};
 
 // Load from localStorage
-let transactions = JSON.parse(localStorage.getItem('txs') || 'null');
 if (!transactions) {
   // Load imported data as initial seed
   transactions = IMPORTED_DATA.map((r, i) => ({
