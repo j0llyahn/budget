@@ -4293,54 +4293,50 @@ function saveData() {
 function deleteTx(id) {
   if (!confirm('정말 삭제할까요?')) return;
 
-  // 서버 데이터를 새로 받지 않도록 잠금
+  // 1. 동기화 잠금 (삭제 중 서버 데이터가 덮어쓰지 못하게 방지)
   isSyncing = true; 
 
-  // 1. 내 폰의 리스트에서 먼저 지움 (사용자에게 빠른 반응을 주기 위함)
+  // 2. 삭제할 내역 찾기
   const txToDelete = transactions.find(t => t.id === id);
-  if (txToDelete && txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
-    const loanObj = loans.find(l => l.id === txToDelete.loanId);
-    if (loanObj) loanObj.balance += txToDelete.amount;
+  if (!txToDelete) {
+    isSyncing = false;
+    return;
   }
-  transactions = transactions.filter(t => t.id !== id);
 
-  // 2. ⭐ 수정된 전체 리스트를 서버에 덮어씌움 (이게 진짜 삭제 과정)
-  saveData(); 
-
-  showToast('✓ 서버에서 삭제되었습니다.');
-  
-  // 3. 서버 전송 완료 후 잠금 해제
-  setTimeout(() => { isSyncing = false; }, 1000);
-}
-
-  // 2. 대출 원금 복구 로직 (대출 상환 내역일 경우)
+  // 3. 대출 원금 복구 로직 (원금 상환 내역일 경우에만 실행)
   if (txToDelete.isLoan && txToDelete.subcat === '원금상환' && txToDelete.loanId) {
     const loanObj = loans.find(l => l.id === txToDelete.loanId);
     if (loanObj) {
       loanObj.balance += txToDelete.amount;
-      saveLoans(); 
+      saveLoans(); // 대출 잔액 변경사항 저장 및 Firebase 업로드
     }
   }
 
-  // 3. 로컬 배열에서 즉시 삭제
+  // 4. 가계부 내역 배열에서 삭제
   transactions = transactions.filter(t => t.id !== id);
 
-  // 4. 저장 및 서버 업로드 (saveData 함수 호출)
+  // 5. 데이터 저장 (LocalStorage 저장 및 Firebase 업로드)
   saveData(); 
 
-  // 5. 화면 즉시 갱신
-  renderSummary(); 
-  renderRecent(); 
-  if (typeof renderRecords === 'function') renderRecords();
+  // 6. 모든 화면 즉시 갱신
+  renderSummary(); // 상단 요약 카드
+  renderRecent();  // 홈 화면 최근 내역
+  
+  if (typeof renderRecords === 'function') renderRecords(); // 내역 페이지
+  if (typeof renderLoanPage === 'function') renderLoanPage(); // 대출 관리 페이지
+  
+  // 대출 상세 팝업이 열려있다면 히스토리도 즉시 갱신
   if (txToDelete.loanId && typeof renderLoanHistory === 'function') {
     renderLoanHistory(txToDelete.loanId);
   }
 
   showToast('✓ 삭제되었습니다.');
   
-  // 6. 서버에 데이터가 올라갈 시간을 준 뒤(1.5초), 동기화 차단 해제
-  setTimeout(() => { isSyncing = false; }, 1500);
-
+  // 7. 서버에 데이터가 반영될 시간을 준 뒤(1.5초), 동기화 잠금 해제
+  setTimeout(() => { 
+    isSyncing = false; 
+  }, 1500);
+}
 
 // ─── 설정 페이지에 공유코드 표시 추가 ──────────────────────
 function showShareInfo() {
