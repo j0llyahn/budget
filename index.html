@@ -1950,6 +1950,17 @@ function updateCatOptions() {
   // ⭐ 요소가 없을 경우 함수를 종료하여 에러 방지
   if (!sel) return; 
 
+  // 투자 탭일 경우, 등록된 계좌 목록을 카테고리에 자동 추가
+  if (currentType === 'invest') {
+    accounts.forEach(ac => {
+      const type = ac.type || '기타';
+      if (!CATEGORY_MAP.invest[type]) CATEGORY_MAP.invest[type] = [];
+      if (!CATEGORY_MAP.invest[type].includes(ac.name)) {
+        CATEGORY_MAP.invest[type].push(ac.name);
+      }
+    });
+  }
+
   const cats = Object.keys(CATEGORY_MAP[currentType] || {});
   sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
   
