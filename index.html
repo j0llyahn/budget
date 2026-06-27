@@ -2612,7 +2612,7 @@ function renderInvest() {
     const latestEval = evals.length ? evals[evals.length-1] : null;
     // Get deposits from transactions (계좌명 정확 매칭만 사용)
     const deposits = transactions.filter(t => 
-      t.type === 'invest' && (t.title === ac.name || t.title.includes(ac.name) || t.memo === ac.name)
+      t.type === 'invest' && (t.title === ac.name || t.title.includes(ac.name) || t.memo === ac.name || t.subcat === ac.name)
     ).reduce((s,t)=>s+t.amount, 0);
     const principal = ac.principal + deposits;
     const current = latestEval ? latestEval.amount : principal;
